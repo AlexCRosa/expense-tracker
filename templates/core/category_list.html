@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Categories</h2>
+<a href="{% url 'core:category_create' %}" class="btn btn-primary">+ Add Category</a>
+<table class="table mt-3">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for category in object_list %}
+        <tr>
+            <td>{{ category.name }}</td>
+            <td>{{ category.description }}</td>
+            <td>
+                {% if category.user %}
+                <!-- User-specific category -->
+                <a href="{% url 'core:category_update' category.pk %}" class="btn btn-warning btn-sm">Edit</a>
+                <a href="{% url 'core:category_delete' category.pk %}" class="btn btn-danger btn-sm">Delete</a>
+                {% else %}
+                <!-- Default category -->
+                <a href="{% url 'core:category_update' category.pk %}" class="btn btn-warning btn-sm">Edit Description</a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -14,7 +14,7 @@ class User(AbstractUser):
 
 
 class Category(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='categories')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='categories', null=True, blank=True)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
 

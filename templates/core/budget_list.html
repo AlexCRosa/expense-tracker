@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Budgets</h2>
+<a href="{% url 'core:budget_create' %}" class="btn btn-primary">+ Add Budget</a>
+<table class="table mt-3">
+    <thead>
+        <tr>
+            <th>Category</th>
+            <th>Amount</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for budget in object_list %}
+        <tr>
+            <td>{{ budget.category }}</td>
+            <td>${{ budget.amount }}</td>
+            <td>{{ budget.start_date }}</td>
+            <td>{{ budget.end_date }}</td>
+            <td>
+                <a href="{% url 'core:budget_update' budget.pk %}" class="btn btn-warning btn-sm">Edit</a>
+                <a href="{% url 'core:budget_delete' budget.pk %}" class="btn btn-danger btn-sm">Delete</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

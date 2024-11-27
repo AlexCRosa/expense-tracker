@@ -1,7 +1,9 @@
 from django.test import TestCase
+from django.urls import reverse
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from datetime import date
+from core.models import User, Category
 
 from core.models import Expense, Income, Category, Budget, SavingsGoal
 
@@ -80,20 +82,102 @@ class IncomeModelTest(TestCase):
 
 
 class CategoryModelTest(TestCase):
+
     def setUp(self):
-        # Create a user first
-        self.user = get_user_model().objects.create_user(
-            username='testuser', 
-            email='test@example.com', 
-            password='testpass'
+        """
+        Set up test users and categories.
+        """
+        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password123')
+        self.default_category1 = Category.objects.create(name='Default Category 1', user=None, description='')
+        self.default_category2 = Category.objects.create(name='Default Category 2', user=None, description='')
+        self.user_category = Category.objects.create(name='User Category', user=self.user, description='User-specific')
+
+    def test_allow_duplicate_category_names_for_different_users(self):
+        """
+        Test that different users can have categories with the same name.
+        """
+        other_user = User.objects.create_user(username='otheruser', email='otheruser@example.com', password='password123')
+        Category.objects.create(name='Duplicate Name', user=other_user)
+        Category.objects.create(name='Duplicate Name', user=self.user)
+        self.assertEqual(Category.objects.filter(name='Duplicate Name').count(), 2)
+
+    def test_edit_default_category_creates_user_copy(self):
+        """
+        Test that editing a default category creates a user-specific copy.
+        """
+        self.client.login(username='testuser', password='password123')
+
+        # Attempt to edit a default category
+        response = self.client.post(
+            reverse('core:category_update', args=[self.default_category1.id]),
+            {'name': self.default_category1.name, 'description': 'User edited description'}
         )
 
-    def test_category_str(self):
-        category = Category.objects.create(
-            user=self.user,
-            name='Groceries'
+        # Ensure a user-specific copy was created
+        self.assertRedirects(response, reverse('core:category_list'))
+        user_specific_category = Category.objects.get(user=self.user, name=self.default_category1.name)
+        self.assertEqual(user_specific_category.description, 'User edited description')
+
+        # Ensure the default category remains unchanged
+        default_category = Category.objects.get(pk=self.default_category1.id)
+        self.assertEqual(default_category.description, '')
+
+    def test_prevent_duplicate_category_names_for_user(self):
+        """
+        Test that duplicate category names are not allowed for the same user.
+        """
+        self.client.login(username='testuser', password='password123')
+
+        # Attempt to create a category with a duplicate name
+        response = self.client.post(
+            reverse('core:category_create'),
+            {'name': self.user_category.name, 'description': 'Duplicate Name Attempt'}
         )
-        self.assertEqual(str(category), 'Groceries')
+
+        # Ensure the form error message is included in the response
+        self.assertContains(response, "You already have a category with this name.")
+
+        # Ensure no new category was created
+        self.assertEqual(
+            Category.objects.filter(name=self.user_category.name, user=self.user).count(),
+            1  # Only the original user category should exist
+        )
+
+
+    def test_list_view_shows_correct_categories(self):
+        """
+        Test that the category list view shows:
+        - User-owned categories
+        - Default categories not customized by the user
+        """
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('core:category_list'))
+
+        # Customize Default Category 1
+        customized_category = Category.objects.create(
+            user=self.user,
+            name=self.default_category1.name,
+            description="Customized Description"
+        )
+        response = self.client.get(reverse('core:category_list'))
+
+        # Ensure customized default category is shown
+        self.assertContains(response, customized_category.name)
+        self.assertContains(response, customized_category.description)
+
+    def test_delete_user_category(self):
+        """
+        Test that a user can delete their own category.
+        """
+        self.client.login(username='testuser', password='password123')
+
+        # Delete the user category
+        response = self.client.post(reverse('core:category_delete', args=[self.user_category.id]))
+        self.assertRedirects(response, reverse('core:category_list'))
+
+        # Ensure the category is deleted
+        with self.assertRaises(Category.DoesNotExist):
+            Category.objects.get(pk=self.user_category.id)
 
 
 class BudgetModelTest(TestCase):

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>{% if object %}Edit Category{% else %}Create Category{% endif %}</h2>
+{% if object and object.user is None %}
+<div class="alert alert-info">
+    You are editing a default category. Changes are allowed only for the description.
+</div>
+{% endif %}
+<form method="post">
+    {% csrf_token %}
+    {% for message in messages %}
+      <div class="alert alert-success">{{ message }}</div>
+    {% endfor %}
+    {% if form.name %}
+    <div class="form-group">
+        <label for="id_name">Name</label>
+        {{ form.name }}
+    </div>
+    {% endif %}
+    <div class="form-group">
+        <label for="id_description">Description</label>
+        {{ form.description }}
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">
+        {% if object %}Save Changes{% else %}Create{% endif %}
+    </button>
+    <a href="{% url 'core:category_list' %}" class="btn btn-secondary mt-3">Cancel</a>
+</form>
+{% endblock %}

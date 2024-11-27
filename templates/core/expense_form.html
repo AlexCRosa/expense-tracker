@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>{% if object %}Edit{% else %}Add{% endif %} Expense</h2>
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">{% if object %}Update{% else %}Create{% endif %}</button>
+</form>
+<a href="{% url 'core:expense_list' %}" class="btn btn-secondary mt-3">Back to Expenses</a>
+{% endblock %}
