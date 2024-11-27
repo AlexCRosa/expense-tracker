@@ -3,6 +3,7 @@ from django.http import HttpResponseRedirect
 from django.contrib import messages
 from django.urls import reverse_lazy
 from .models import Category, Expense, Income, Budget, SavingsGoal
+from django.utils import timezone
 
 # Category Views
 class CategoryListView(ListView):
@@ -98,11 +99,24 @@ class ExpenseListView(ListView):
     model = Expense
     template_name = 'core/expense_list.html'
 
+    def get_queryset(self):
+        return Expense.objects.filter(user=self.request.user)
+
 class ExpenseCreateView(CreateView):
     model = Expense
     fields = ['amount', 'category', 'description', 'date']
     template_name = 'core/expense_form.html'
     success_url = reverse_lazy('core:expense_list')
+
+    def form_valid(self, form):
+        # Set the user of the expense to the logged-in user
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['date'] = timezone.now().date()
+        return initial
 
 class ExpenseUpdateView(UpdateView):
     model = Expense

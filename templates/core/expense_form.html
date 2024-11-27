@@ -1,11 +1,32 @@
-{% extends "base.html" %}
-
-{% block content %}
-<h2>{% if object %}Edit{% else %}Add{% endif %} Expense</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">{% if object %}Update{% else %}Create{% endif %}</button>
-</form>
-<a href="{% url 'core:expense_list' %}" class="btn btn-secondary mt-3">Back to Expenses</a>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% if object %}Edit Expense{% else %}Create Expense{% endif %}</title>
+</head>
+<body>
+    <h2>{% if object %}Edit Expense{% else %}Create Expense{% endif %}</h2>
+    <form method="post">
+        {% csrf_token %}
+        <div>
+            <label for="id_amount">Amount:</label>
+            {{ form.amount }}
+        </div>
+        <div>
+            <label for="id_category">Category:</label>
+            {{ form.category }}
+        </div>
+        <div>
+            <label for="id_description">Description:</label>
+            {{ form.description }}
+        </div>
+        <div>
+            <label for="id_date">Date:</label>
+            {{ form.date }}
+        </div>
+        <button type="submit">{% if object %}Save Changes{% else %}Create{% endif %}</button>
+        <a href="{% url 'core:expense_list' %}">Cancel</a>
+    </form>
+</body>
+</html>

@@ -24,15 +24,15 @@ class CategoryAdmin(admin.ModelAdmin):
 
 @admin.register(Expense)
 class ExpenseAdmin(admin.ModelAdmin):
-    list_display = ['amount', 'user', 'category', 'date']
-    list_filter = ['category', 'date']
+    list_display = ['amount', 'user', 'category', 'description', 'date']
+    list_filter = ['category', ('date', admin.DateFieldListFilter)]
     search_fields = ['description']
 
 
 @admin.register(Income)
 class IncomeAdmin(admin.ModelAdmin):
     list_display = ['amount', 'user', 'date']
-    list_filter = ['date']
+    list_filter = [('date', admin.DateFieldListFilter)]
 
 
 @admin.register(Budget)
