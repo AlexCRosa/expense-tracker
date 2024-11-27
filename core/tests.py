@@ -38,28 +38,71 @@ class UserManagersTest(TestCase):
 
 class ExpenseModelTest(TestCase):
     def setUp(self):
-        # Create a user and a category first
-        self.user = get_user_model().objects.create_user(
-            username='testuser', 
-            email='test@example.com', 
-            password='testpass'
-        )
-        self.category = Category.objects.create(
-            user=self.user, 
-            name='Groceries'
-        )
-
-    def test_expense_str(self):
-        test_date = timezone.now()
-        expense = Expense.objects.create(
+        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password123')
+        self.category = Category.objects.create(user=self.user, name='Food', description='Groceries and dining')
+        self.expense = Expense.objects.create(
             user=self.user,
-            amount=100.0, 
-            category=self.category, 
-            date=test_date
+            amount=100.50,
+            category=self.category,
+            description='Dinner at a restaurant',
+            date=date(2024, 11, 25)
         )
-        expected_str = f"{expense.amount} - {self.category} on {test_date}"
-        self.assertEqual(str(expense), expected_str)
 
+    def test_expense_creation(self):
+        self.assertEqual(self.expense.user, self.user)
+        self.assertEqual(self.expense.amount, 100.50)
+        self.assertEqual(self.expense.category, self.category)
+        self.assertEqual(self.expense.description, 'Dinner at a restaurant')
+        self.assertEqual(self.expense.date, date(2024, 11, 25))
+
+    def test_expense_string_representation(self):
+        self.assertEqual(
+            str(self.expense),
+            f"100.5 - {self.category} on {self.expense.date}"
+        )
+
+    def test_expense_list_view(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('core:expense_list'))
+
+        self.assertContains(response, 'Dinner at a restaurant')
+        self.assertContains(response, '100.50')
+        self.assertEqual(response.status_code, 200)
+
+    def test_expense_create_view(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('core:expense_create'), {
+            'amount': 50.75,
+            'category': self.category.id,
+            'description': 'Groceries shopping',
+            'date': '2024-11-26'
+        })
+
+        self.assertRedirects(response, reverse('core:expense_list'))
+        self.assertEqual(Expense.objects.count(), 2)
+        new_expense = Expense.objects.last()
+        self.assertEqual(new_expense.description, 'Groceries shopping')
+
+    def test_expense_update_view(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('core:expense_update', args=[self.expense.id]), {
+            'amount': 120.00,
+            'category': self.category.id,
+            'description': 'Updated Dinner expense',
+            'date': '2024-11-25'
+        })
+
+        self.assertRedirects(response, reverse('core:expense_list'))
+        self.expense.refresh_from_db()
+        self.assertEqual(self.expense.amount, 120.00)
+        self.assertEqual(self.expense.description, 'Updated Dinner expense')
+
+    def test_expense_delete_view(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('core:expense_delete', args=[self.expense.id]))
+
+        self.assertRedirects(response, reverse('core:expense_list'))
+        self.assertEqual(Expense.objects.count(), 0)
 
 class IncomeModelTest(TestCase):
     def setUp(self):
@@ -84,76 +127,50 @@ class IncomeModelTest(TestCase):
 class CategoryModelTest(TestCase):
 
     def setUp(self):
-        """
-        Set up test users and categories.
-        """
         self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password123')
         self.default_category1 = Category.objects.create(name='Default Category 1', user=None, description='')
         self.default_category2 = Category.objects.create(name='Default Category 2', user=None, description='')
         self.user_category = Category.objects.create(name='User Category', user=self.user, description='User-specific')
 
     def test_allow_duplicate_category_names_for_different_users(self):
-        """
-        Test that different users can have categories with the same name.
-        """
         other_user = User.objects.create_user(username='otheruser', email='otheruser@example.com', password='password123')
         Category.objects.create(name='Duplicate Name', user=other_user)
         Category.objects.create(name='Duplicate Name', user=self.user)
         self.assertEqual(Category.objects.filter(name='Duplicate Name').count(), 2)
 
     def test_edit_default_category_creates_user_copy(self):
-        """
-        Test that editing a default category creates a user-specific copy.
-        """
         self.client.login(username='testuser', password='password123')
 
-        # Attempt to edit a default category
         response = self.client.post(
             reverse('core:category_update', args=[self.default_category1.id]),
             {'name': self.default_category1.name, 'description': 'User edited description'}
         )
 
-        # Ensure a user-specific copy was created
         self.assertRedirects(response, reverse('core:category_list'))
         user_specific_category = Category.objects.get(user=self.user, name=self.default_category1.name)
         self.assertEqual(user_specific_category.description, 'User edited description')
 
-        # Ensure the default category remains unchanged
         default_category = Category.objects.get(pk=self.default_category1.id)
         self.assertEqual(default_category.description, '')
 
     def test_prevent_duplicate_category_names_for_user(self):
-        """
-        Test that duplicate category names are not allowed for the same user.
-        """
         self.client.login(username='testuser', password='password123')
 
-        # Attempt to create a category with a duplicate name
         response = self.client.post(
             reverse('core:category_create'),
             {'name': self.user_category.name, 'description': 'Duplicate Name Attempt'}
         )
 
-        # Ensure the form error message is included in the response
         self.assertContains(response, "You already have a category with this name.")
 
-        # Ensure no new category was created
         self.assertEqual(
-            Category.objects.filter(name=self.user_category.name, user=self.user).count(),
-            1  # Only the original user category should exist
+            Category.objects.filter(name=self.user_category.name, user=self.user).count(), 1 
         )
 
-
     def test_list_view_shows_correct_categories(self):
-        """
-        Test that the category list view shows:
-        - User-owned categories
-        - Default categories not customized by the user
-        """
         self.client.login(username='testuser', password='password123')
         response = self.client.get(reverse('core:category_list'))
 
-        # Customize Default Category 1
         customized_category = Category.objects.create(
             user=self.user,
             name=self.default_category1.name,
@@ -161,21 +178,15 @@ class CategoryModelTest(TestCase):
         )
         response = self.client.get(reverse('core:category_list'))
 
-        # Ensure customized default category is shown
         self.assertContains(response, customized_category.name)
         self.assertContains(response, customized_category.description)
 
     def test_delete_user_category(self):
-        """
-        Test that a user can delete their own category.
-        """
         self.client.login(username='testuser', password='password123')
 
-        # Delete the user category
         response = self.client.post(reverse('core:category_delete', args=[self.user_category.id]))
         self.assertRedirects(response, reverse('core:category_list'))
 
-        # Ensure the category is deleted
         with self.assertRaises(Category.DoesNotExist):
             Category.objects.get(pk=self.user_category.id)
 
