@@ -1,11 +1,9 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 from datetime import date
-from core.models import User, Category
 
-from core.models import Expense, Income, Category, Budget, SavingsGoal
+from core.models import User, Expense, Income, Category, Budget, SavingsGoal
 
 
 class UserManagersTest(TestCase):
@@ -129,7 +127,7 @@ class IncomeModelTest(TestCase):
 
         self.assertEqual(response.status_code, 302) 
         self.assertTrue(Income.objects.filter(description='Bonus').exists())
-        
+
         income = Income.objects.get(description='Bonus')
         self.assertEqual(income.user, self.user)
 
@@ -230,28 +228,122 @@ class CategoryModelTest(TestCase):
 
 
 class BudgetModelTest(TestCase):
+
     def setUp(self):
-        # Create a user and a category first
-        self.user = get_user_model().objects.create_user(
-            username='testuser', 
-            email='test@example.com', 
-            password='testpass'
+        # Create test users with unique emails
+        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password123')
+        self.client.login(username='testuser', password='password123')  # Log in the user
+
+        self.other_user = User.objects.create_user(username='otheruser', email='otheruser@example.com', password='password456')
+
+        # Create categories for the users
+        self.category1 = Category.objects.create(user=self.user, name='Entertainment')
+        self.category2 = Category.objects.create(user=self.user, name='Groceries')
+
+        # Create budgets for the first user
+        self.budget1 = Budget.objects.create(
+            user=self.user,
+            category=self.category1,
+            amount=150.00,
+            start_date=date(2024, 11, 1),
+            end_date=date(2024, 11, 30)
         )
-        self.category = Category.objects.create(
-            user=self.user, 
-            name='Groceries'
+        self.budget2 = Budget.objects.create(
+            user=self.user,
+            category=self.category2,
+            amount=50.00,
+            start_date=date(2024, 11, 1),
+            end_date=date(2024, 11, 30)
         )
 
-    def test_budget_str(self):
-        budget = Budget.objects.create(
-            user=self.user,
-            category=self.category, 
-            amount=1000.0, 
-            start_date=date(2023, 8, 1), 
-            end_date=date(2023, 8, 31)
-        )
-        expected_str = f"{self.category} budget: {budget.amount}"
-        self.assertEqual(str(budget), expected_str)
+        # Add expenses for the first user
+        Expense.objects.create(user=self.user, amount=70, category=self.category1, description="Movies", date=date(2024, 11, 5))
+        Expense.objects.create(user=self.user, amount=30, category=self.category1, description="Concert", date=date(2024, 11, 10))
+        Expense.objects.create(user=self.user, amount=50, category=self.category2, description="Groceries", date=date(2024, 11, 7))
+
+        # Create categories and expenses for the second user
+        other_category = Category.objects.create(user=self.other_user, name='Other Entertainment')
+        Expense.objects.create(user=self.other_user, amount=100, category=other_category, description="Other Expense", date=date(2024, 11, 5))
+
+    def test_budget_calculation(self):
+        """
+        Test that the budgets show correct calculations for Value Spent and Budget Available.
+        """
+        response = self.client.get(reverse('core:budget_list'))  # Now logged-in user is used
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "150.00")  # Budget Defined for Entertainment
+        self.assertContains(response, "100.00")  # Value Spent for Entertainment
+        self.assertContains(response, "50.00")   # Budget Available for Entertainment
+        self.assertContains(response, "50.00")   # Budget Defined for Groceries
+        self.assertContains(response, "50.00")   # Value Spent for Groceries
+        self.assertContains(response, "0.00")    # Budget Available for Groceries
+
+    def test_budget_visible_to_owner_only(self):
+        """
+        Test that budgets only appear for their respective owner.
+        """
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('core:budget_list'))
+        self.assertContains(response, 'Entertainment')
+        self.assertContains(response, 'Groceries')
+
+        self.client.logout()
+
+        self.client.login(username='otheruser', password='password456')
+        response = self.client.get(reverse('core:budget_list'))
+        self.assertNotContains(response, 'Entertainment')
+        self.assertNotContains(response, 'Groceries')
+
+    def test_create_budget(self):
+        """
+        Test that a user can create a new budget for a category they own.
+        """
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('core:budget_create'), {
+            'category': self.category2.id,
+            'amount': 200.00,
+            'start_date': '2024-11-01',
+            'end_date': '2024-11-30'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(Budget.objects.filter(user=self.user, category=self.category2).exists())
+
+    def test_prevent_duplicate_budget_for_category(self):
+        """
+        Test that a user cannot create multiple budgets for the same category.
+        """
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('core:budget_create'), {
+            'category': self.category1.id,
+            'amount': 200.00,
+            'start_date': '2024-11-01',
+            'end_date': '2024-11-30'
+        })
+        self.assertContains(response, "You already have a budget for this category.")
+
+    def test_update_budget(self):
+        """
+        Test that a user can update their existing budget.
+        """
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('core:budget_update', kwargs={'pk': self.budget1.id}), {
+            'category': self.category1.id,
+            'amount': 180.00,
+            'start_date': '2024-11-01',
+            'end_date': '2024-11-30'
+        })
+        self.assertRedirects(response, reverse('core:budget_list'))
+        self.budget1.refresh_from_db()
+        self.assertEqual(self.budget1.amount, 180.00)
+
+    def test_delete_budget(self):
+        """
+        Test that a user can delete their budget.
+        """
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('core:budget_delete', kwargs={'pk': self.budget1.id}))
+        self.assertRedirects(response, reverse('core:budget_list'))
+        self.assertFalse(Budget.objects.filter(id=self.budget1.id).exists())
 
 
 class SavingsGoalModelTest(TestCase):

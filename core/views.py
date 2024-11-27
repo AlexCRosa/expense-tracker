@@ -4,6 +4,9 @@ from django.contrib import messages
 from django.urls import reverse_lazy
 from .models import Category, Expense, Income, Budget, SavingsGoal
 from django.utils import timezone
+from django.db.models import Sum, F, Value, DecimalField
+from django.db.models.functions import Coalesce
+
 
 
 # Category Views
@@ -181,12 +184,48 @@ class BudgetListView(ListView):
     model = Budget
     template_name = 'core/budget_list.html'
 
+    def get_queryset(self):
+        return Budget.objects.filter(user=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        budgets = self.get_queryset()  # Get only the budgets of the current user
+        budgets_data = []
+        for budget in budgets:
+            # Sum expenses of the current user within the budget's date range
+            value_spent = budget.category.expenses.filter(
+                user=self.request.user,  # Filter by the current user
+                date__range=(budget.start_date, budget.end_date)
+            ).aggregate(
+                total=Coalesce(Sum('amount', output_field=DecimalField()), Value(0, output_field=DecimalField()))
+            )['total']
+
+            budgets_data.append({
+                'id': budget.id,
+                'category': budget.category.name,
+                'budget_defined': budget.amount,
+                'value_spent': value_spent,
+                'budget_available': budget.amount - value_spent,
+                'start_date': budget.start_date,
+                'end_date': budget.end_date,
+            })
+        context['budgets_data'] = budgets_data
+        return context
+
 
 class BudgetCreateView(CreateView):
     model = Budget
     fields = ['category', 'amount', 'start_date', 'end_date']
     template_name = 'core/budget_form.html'
     success_url = reverse_lazy('core:budget_list')
+
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        if Budget.objects.filter(user=self.request.user, category=form.cleaned_data['category']).exists():
+            messages.error(self.request, "You already have a budget for this category.")
+            return self.form_invalid(form)
+
+        return super().form_valid(form)
 
 
 class BudgetUpdateView(UpdateView):

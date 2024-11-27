@@ -2,6 +2,9 @@
 
 {% block content %}
 <h2>{% if object %}Edit{% else %}Add{% endif %} Budget</h2>
+{% for message in messages %}
+      <div class="alert alert-success">{{ message }}</div>
+    {% endfor %}
 <form method="post">
     {% csrf_token %}
     {{ form.as_p }}
