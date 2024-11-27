@@ -1,11 +1,26 @@
 {% extends "base.html" %}
 
 {% block content %}
-<h2>{% if object %}Edit{% else %}Add{% endif %} Savings Goal</h2>
+<h2>{% if object %}Edit Savings Goal{% else %}Create Savings Goal{% endif %}</h2>
 <form method="post">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">{% if object %}Update{% else %}Create{% endif %}</button>
+    <div class="mb-3">
+        <label for="id_goal_name" class="form-label">Goal Name:</label>
+        {{ form.goal_name }}
+    </div>
+    <div class="mb-3">
+        <label for="id_target_amount" class="form-label">Goal Amount:</label>
+        {{ form.target_amount }}
+    </div>
+    <div class="mb-3">
+        <label for="id_current_amount" class="form-label">Amount Saved:</label>
+        {{ form.current_amount }}
+    </div>
+    <div class="mb-3">
+        <label for="id_deadline" class="form-label">Deadline:</label>
+        {{ form.deadline }}
+    </div>
+    <button type="submit" class="btn btn-success">{% if object %}Save Changes{% else %}Create Goal{% endif %}</button>
+    <a href="{% url 'core:savings_goal_list' %}" class="btn btn-secondary">Cancel</a>
 </form>
-<a href="{% url 'core:savings_goal_list' %}" class="btn btn-secondary mt-3">Back to Savings Goals</a>
 {% endblock %}

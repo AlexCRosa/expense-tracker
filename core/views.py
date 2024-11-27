@@ -242,9 +242,32 @@ class BudgetDeleteView(DeleteView):
 
 
 # SavingsGoal Views
+from datetime import date
+
 class SavingsGoalListView(ListView):
     model = SavingsGoal
     template_name = 'core/savings_goal_list.html'
+    context_object_name = 'savings_goals'
+
+    def get_queryset(self):
+        """
+        Show savings goals for the current user.
+        """
+        return SavingsGoal.objects.filter(user=self.request.user)
+
+    def get_context_data(self, **kwargs):
+        """
+        Add remaining days to deadline in context.
+        """
+        context = super().get_context_data(**kwargs)
+        savings_goals = self.get_queryset()
+        for goal in savings_goals:
+            goal.amount_to_goal = goal.target_amount - goal.current_amount
+
+            days_to_go = (goal.deadline - date.today()).days
+            goal.remaining_days = f"{days_to_go} days to go" if days_to_go > 0 else "Deadline passed"
+        context['savings_goals'] = savings_goals
+        return context
 
 
 class SavingsGoalCreateView(CreateView):
@@ -252,6 +275,10 @@ class SavingsGoalCreateView(CreateView):
     fields = ['goal_name', 'target_amount', 'current_amount', 'deadline']
     template_name = 'core/savings_goal_form.html'
     success_url = reverse_lazy('core:savings_goal_list')
+
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        return super().form_valid(form)
 
 
 class SavingsGoalUpdateView(UpdateView):

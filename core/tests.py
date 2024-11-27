@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from datetime import date
+from datetime import date, timedelta
 
 from core.models import User, Expense, Income, Category, Budget, SavingsGoal
 
@@ -329,27 +329,93 @@ class BudgetModelTest(TestCase):
     def test_delete_budget(self):
         self.client.login(username='testuser', password='password123')
         response = self.client.post(reverse('core:budget_delete', kwargs={'pk': self.budget1.id}))
-        
+
         self.assertRedirects(response, reverse('core:budget_list'))
         self.assertFalse(Budget.objects.filter(id=self.budget1.id).exists())
 
 
 class SavingsGoalModelTest(TestCase):
     def setUp(self):
-        # Create a user first
-        self.user = get_user_model().objects.create_user(
-            username='testuser', 
-            email='test@example.com', 
-            password='testpass'
+        self.user = User.objects.create_user(username='testuser', password='password123', email='testuser@example.com')
+        self.other_user = User.objects.create_user(username='otheruser', password='password456', email='otheruser@example.com')
+
+        self.goal1 = SavingsGoal.objects.create(
+            user=self.user,
+            goal_name="Spring Break Travel",
+            target_amount=1200.00,
+            current_amount=300.00,
+            deadline=date.today() + timedelta(days=30),
         )
 
-    def test_savings_goal_str(self):
-        savings_goal = SavingsGoal.objects.create(
+        self.goal2 = SavingsGoal.objects.create(
             user=self.user,
-            goal_name='Vacation Fund',
-            target_amount=5000.0,
-            current_amount=1000.0,
-            deadline=date(2023, 12, 31)
+            goal_name="Christmas Dinner",
+            target_amount=200.00,
+            current_amount=100.00,
+            deadline=date.today() + timedelta(days=60),
         )
-        expected_str = f"{savings_goal.goal_name} - {savings_goal.current_amount}/{savings_goal.target_amount}"
-        self.assertEqual(str(savings_goal), expected_str)
+
+        self.other_user_goal = SavingsGoal.objects.create(
+            user=self.other_user,
+            goal_name="Other User Goal",
+            target_amount=100.00,
+            current_amount=50.00,
+            deadline=date.today() + timedelta(days=10),
+        )
+
+    def test_savings_goal_creation(self):
+        goal = SavingsGoal.objects.create(
+            user=self.user,
+            goal_name="New Savings Goal",
+            target_amount=500.00,
+            current_amount=0.00,
+            deadline=date.today() + timedelta(days=90),
+        )
+
+        self.assertEqual(goal.user, self.user)
+        self.assertEqual(goal.goal_name, "New Savings Goal")
+        self.assertEqual(goal.target_amount, 500.00)
+        self.assertEqual(goal.current_amount, 0.00)
+
+    def test_amount_to_goal_calculation(self):
+        self.assertEqual(self.goal1.target_amount - self.goal1.current_amount, 900.00)
+        self.assertEqual(self.goal2.target_amount - self.goal2.current_amount, 100.00)
+
+    def test_filter_savings_goals_by_user(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('core:savings_goal_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.goal1.goal_name)
+        self.assertContains(response, self.goal2.goal_name)
+        self.assertNotContains(response, self.other_user_goal.goal_name)
+
+    def test_edit_savings_goal(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('core:savings_goal_update', args=[self.goal1.id]), {
+            'goal_name': 'Updated Spring Break',
+            'target_amount': 1500.00,
+            'current_amount': 500.00,
+            'deadline': date.today() + timedelta(days=40),
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.goal1.refresh_from_db()
+        self.assertEqual(self.goal1.goal_name, 'Updated Spring Break')
+        self.assertEqual(self.goal1.target_amount, 1500.00)
+        self.assertEqual(self.goal1.current_amount, 500.00)
+
+    def test_delete_savings_goal(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.post(reverse('core:savings_goal_delete', args=[self.goal1.id]))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(SavingsGoal.objects.filter(id=self.goal1.id).exists())
+
+    def test_deadline_display(self):
+        self.client.login(username='testuser', password='password123')
+        response = self.client.get(reverse('core:savings_goal_list'))
+
+        self.assertContains(response, "30 days to go")
+        self.assertContains(response, "60 days to go")
+        
