@@ -31,7 +31,7 @@ class ExpenseAdmin(admin.ModelAdmin):
 
 @admin.register(Income)
 class IncomeAdmin(admin.ModelAdmin):
-    list_display = ['amount', 'user', 'date']
+    list_display = ['amount', 'user', 'description', 'date']
     list_filter = [('date', admin.DateFieldListFilter)]
 
 

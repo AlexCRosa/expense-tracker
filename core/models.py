@@ -37,12 +37,11 @@ class Expense(models.Model):
         return f"{self.amount} - {self.category} on {self.date}"
 
 
-
 class Income(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incomes')
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    description = models.TextField(blank=True, null=True)
-    date = models.DateField(default=timezone.now)
+    description = models.TextField(verbose_name="Source of Income", blank=True, null=True)
+    date = models.DateField(verbose_name="Date of Credit", default=timezone.now)
 
     def __str__(self):
         return f"{self.amount} on {self.date}"

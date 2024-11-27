@@ -5,6 +5,7 @@ from django.urls import reverse_lazy
 from .models import Category, Expense, Income, Budget, SavingsGoal
 from django.utils import timezone
 
+
 # Category Views
 class CategoryListView(ListView):
     model = Category
@@ -20,6 +21,7 @@ class CategoryListView(ListView):
             name__in=user_categories.values_list('name', flat=True)
         )
         return user_categories | default_categories
+
 
 class CategoryCreateView(CreateView):
     model = Category
@@ -41,6 +43,7 @@ class CategoryCreateView(CreateView):
 
     def get_success_url(self):
         return reverse_lazy('core:category_list')
+
 
 class CategoryUpdateView(UpdateView):
     model = Category
@@ -89,10 +92,12 @@ class CategoryUpdateView(UpdateView):
         """
         return reverse_lazy('core:category_list')
 
+
 class CategoryDeleteView(DeleteView):
     model = Category
     template_name = 'core/category_confirm_delete.html'
     success_url = reverse_lazy('core:category_list')
+
 
 # Expense Views
 class ExpenseListView(ListView):
@@ -101,6 +106,7 @@ class ExpenseListView(ListView):
 
     def get_queryset(self):
         return Expense.objects.filter(user=self.request.user)
+
 
 class ExpenseCreateView(CreateView):
     model = Expense
@@ -118,21 +124,28 @@ class ExpenseCreateView(CreateView):
         initial['date'] = timezone.now().date()
         return initial
 
+
 class ExpenseUpdateView(UpdateView):
     model = Expense
     fields = ['amount', 'category', 'description', 'date']
     template_name = 'core/expense_form.html'
     success_url = reverse_lazy('core:expense_list')
 
+
 class ExpenseDeleteView(DeleteView):
     model = Expense
     template_name = 'core/expense_confirm_delete.html'
     success_url = reverse_lazy('core:expense_list')
 
+
 # Income Views
 class IncomeListView(ListView):
     model = Income
     template_name = 'core/income_list.html'
+
+    def get_queryset(self):
+        return Income.objects.filter(user=self.request.user)
+
 
 class IncomeCreateView(CreateView):
     model = Income
@@ -140,21 +153,34 @@ class IncomeCreateView(CreateView):
     template_name = 'core/income_form.html'
     success_url = reverse_lazy('core:income_list')
 
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        return super().form_valid(form)
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['date'] = timezone.now().date()
+        return initial
+
+
 class IncomeUpdateView(UpdateView):
     model = Income
     fields = ['amount', 'description', 'date']
     template_name = 'core/income_form.html'
     success_url = reverse_lazy('core:income_list')
 
+
 class IncomeDeleteView(DeleteView):
     model = Income
     template_name = 'core/income_confirm_delete.html'
     success_url = reverse_lazy('core:income_list')
 
+
 # Budget Views
 class BudgetListView(ListView):
     model = Budget
     template_name = 'core/budget_list.html'
+
 
 class BudgetCreateView(CreateView):
     model = Budget
@@ -162,21 +188,25 @@ class BudgetCreateView(CreateView):
     template_name = 'core/budget_form.html'
     success_url = reverse_lazy('core:budget_list')
 
+
 class BudgetUpdateView(UpdateView):
     model = Budget
     fields = ['category', 'amount', 'start_date', 'end_date']
     template_name = 'core/budget_form.html'
     success_url = reverse_lazy('core:budget_list')
 
+
 class BudgetDeleteView(DeleteView):
     model = Budget
     template_name = 'core/budget_confirm_delete.html'
     success_url = reverse_lazy('core:budget_list')
 
+
 # SavingsGoal Views
 class SavingsGoalListView(ListView):
     model = SavingsGoal
     template_name = 'core/savings_goal_list.html'
+
 
 class SavingsGoalCreateView(CreateView):
     model = SavingsGoal
@@ -184,11 +214,13 @@ class SavingsGoalCreateView(CreateView):
     template_name = 'core/savings_goal_form.html'
     success_url = reverse_lazy('core:savings_goal_list')
 
+
 class SavingsGoalUpdateView(UpdateView):
     model = SavingsGoal
     fields = ['goal_name', 'target_amount', 'current_amount', 'deadline']
     template_name = 'core/savings_goal_form.html'
     success_url = reverse_lazy('core:savings_goal_list')
+
 
 class SavingsGoalDeleteView(DeleteView):
     model = SavingsGoal

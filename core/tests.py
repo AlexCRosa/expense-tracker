@@ -104,24 +104,62 @@ class ExpenseModelTest(TestCase):
         self.assertRedirects(response, reverse('core:expense_list'))
         self.assertEqual(Expense.objects.count(), 0)
 
+
 class IncomeModelTest(TestCase):
     def setUp(self):
-        # Create a user first
-        self.user = get_user_model().objects.create_user(
-            username='testuser', 
-            email='test@example.com', 
-            password='testpass'
-        )
+        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='password123')
+        self.client.login(username='testuser', password='password123')
+        self.income1 = Income.objects.create(user=self.user, amount=100.50, description="Salary", date="2024-11-01")
+        self.income2 = Income.objects.create(user=self.user, amount=50.75, description="Freelance", date="2024-11-15")
 
-    def test_income_str(self):
-        test_date = timezone.now()
-        income = Income.objects.create(
-            user=self.user,
-            amount=5000.0, 
-            date=test_date
-        )
-        expected_str = f"{income.amount} on {test_date}"
-        self.assertEqual(str(income), expected_str)
+    def test_income_list_view(self):
+        response = self.client.get(reverse('core:income_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Salary")
+        self.assertContains(response, "Freelance")
+        self.assertTemplateUsed(response, 'core/income_list.html')
+
+    def test_income_create_view(self):
+        response = self.client.post(reverse('core:income_create'), {
+            'amount': 200.00,
+            'description': 'Bonus',
+            'date': '2024-11-20',
+        })
+
+        self.assertEqual(response.status_code, 302) 
+        self.assertTrue(Income.objects.filter(description='Bonus').exists())
+        
+        income = Income.objects.get(description='Bonus')
+        self.assertEqual(income.user, self.user)
+
+    def test_income_update_view(self):
+        response = self.client.post(reverse('core:income_update', kwargs={'pk': self.income1.pk}), {
+            'amount': 120.00,
+            'description': 'Updated Salary',
+            'date': '2024-11-01',
+        })
+
+        self.assertEqual(response.status_code, 302)
+        self.income1.refresh_from_db()
+        self.assertEqual(self.income1.amount, 120.00)
+        self.assertEqual(self.income1.description, 'Updated Salary')
+
+    def test_income_delete_view(self):
+        response = self.client.post(reverse('core:income_delete', kwargs={'pk': self.income2.pk}))
+
+        self.assertEqual(response.status_code, 302) 
+        self.assertFalse(Income.objects.filter(pk=self.income2.pk).exists())
+
+    def test_income_list_shows_only_user_incomes(self):
+        other_user = User.objects.create_user(username='otheruser', email='otheruser@example.com', password='password123')
+        Income.objects.create(user=other_user, amount=500.00, description="Other User Income", date="2024-11-10")
+        response = self.client.get(reverse('core:income_list'))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Salary")
+        self.assertContains(response, "Freelance")
+        self.assertNotContains(response, "Other User Income")
 
 
 class CategoryModelTest(TestCase):

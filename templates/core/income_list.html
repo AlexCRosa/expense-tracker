@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
 {% block content %}
 <h2>Incomes</h2>
@@ -7,21 +7,25 @@
     <thead>
         <tr>
             <th>Amount</th>
-            <th>Description</th>
-            <th>Date</th>
+            <th>Source of Income</th>
+            <th>Date of Credit</th>
             <th>Actions</th>
         </tr>
     </thead>
     <tbody>
         {% for income in object_list %}
         <tr>
-            <td>${{ income.amount }}</td>
+            <td>{{ income.amount }}</td>
             <td>{{ income.description }}</td>
             <td>{{ income.date }}</td>
             <td>
                 <a href="{% url 'core:income_update' income.pk %}" class="btn btn-warning btn-sm">Edit</a>
                 <a href="{% url 'core:income_delete' income.pk %}" class="btn btn-danger btn-sm">Delete</a>
             </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="4">No incomes found.</td>
         </tr>
         {% endfor %}
     </tbody>

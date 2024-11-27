@@ -1,11 +1,22 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 
 {% block content %}
-<h2>{% if object %}Edit{% else %}Add{% endif %} Income</h2>
+<h2>{% if object %}Edit Income{% else %}Create Income{% endif %}</h2>
 <form method="post">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">{% if object %}Update{% else %}Create{% endif %}</button>
+    <div>
+        <label for="id_amount">Amount:</label>
+        {{ form.amount }}
+    </div>
+    <div>
+        <label for="id_description">Source of Income:</label>
+        {{ form.description }}
+    </div>
+    <div>
+        <label for="id_date">Date of Credit:</label>
+        <input type="date" name="date" id="id_date" value="{{ form.date.value|date:'Y-m-d' }}">
+    </div>
+    <button type="submit">{% if object %}Save Changes{% else %}Create{% endif %}</button>
+    <a href="{% url 'core:income_list' %}">Cancel</a>
 </form>
-<a href="{% url 'core:income_list' %}" class="btn btn-secondary mt-3">Back to Incomes</a>
 {% endblock %}
