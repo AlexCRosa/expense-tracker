@@ -1,22 +1,24 @@
 {% extends 'base.html' %}
 
+{% block title %}Create Income - Talon Expense Tracker{% endblock title %}
+
 {% block content %}
 <h2>{% if object %}Edit Income{% else %}Create Income{% endif %}</h2>
 <form method="post">
     {% csrf_token %}
-    <div>
+    <div class="mb-3">
         <label for="id_amount">Amount:</label>
         {{ form.amount }}
     </div>
-    <div>
+    <div class="mb-3">
         <label for="id_description">Source of Income:</label>
         {{ form.description }}
     </div>
-    <div>
+    <div class="mb-3">
         <label for="id_date">Date of Credit:</label>
         <input type="date" name="date" id="id_date" value="{{ form.date.value|date:'Y-m-d' }}">
     </div>
-    <button type="submit">{% if object %}Save Changes{% else %}Create{% endif %}</button>
-    <a href="{% url 'core:income_list' %}">Cancel</a>
+    <button type="submit" class="btn btn-primary mt-3">{% if object %}Save Changes{% else %}Create Income{% endif %}</button>
+    <a href="{% url 'core:income_list' %}" class="btn btn-secondary mt-3">Cancel</a>
 </form>
 {% endblock %}

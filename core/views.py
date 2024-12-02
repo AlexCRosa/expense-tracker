@@ -4,9 +4,10 @@ from django.contrib import messages
 from django.urls import reverse_lazy
 from .models import Category, Expense, Income, Budget, SavingsGoal
 from django.utils import timezone
+from datetime import date
+import calendar
 from django.db.models import Sum, F, Value, DecimalField
 from django.db.models.functions import Coalesce
-
 
 
 # Category Views
@@ -16,9 +17,6 @@ class CategoryListView(ListView):
     context_object_name = 'categories'
 
     def get_queryset(self):
-        """
-        Show user-owned categories and default categories that the user has not customized.
-        """
         user_categories = Category.objects.filter(user=self.request.user)
         default_categories = Category.objects.filter(user=None).exclude(
             name__in=user_categories.values_list('name', flat=True)
@@ -32,9 +30,6 @@ class CategoryCreateView(CreateView):
     template_name = 'core/category_form.html'
 
     def form_valid(self, form):
-        """
-        Ensure the category is unique per user and does not conflict with default categories.
-        """
         form.instance.user = self.request.user
         if Category.objects.filter(name=form.instance.name, user=self.request.user).exists():
             messages.error(self.request, "You already have a category with this name.")
@@ -54,20 +49,12 @@ class CategoryUpdateView(UpdateView):
     template_name = 'core/category_form.html'
 
     def get_form(self, form_class=None):
-        """
-        Customize the form to remove the 'name' field for default categories.
-        """
         form = super().get_form(form_class)
         if self.object.user is None:  # Default category
             form.fields.pop('name')  # Remove 'name' field for default categories
         return form
 
     def form_valid(self, form):
-        """
-        Handle saving changes:
-        - For default categories, create a user-specific copy.
-        - For user-owned categories, save changes normally.
-        """
         category = self.object
         if category.user is None:  # Default category
             # Create a user-specific copy with the updated description
@@ -82,17 +69,9 @@ class CategoryUpdateView(UpdateView):
         return HttpResponseRedirect(self.get_success_url())
 
     def get_queryset(self):
-        """
-        Limit access to:
-        - Categories owned by the user.
-        - Default categories.
-        """
         return Category.objects.filter(user=self.request.user) | Category.objects.filter(user=None)
 
     def get_success_url(self):
-        """
-        Redirect to the category list after editing.
-        """
         return reverse_lazy('core:category_list')
 
 
@@ -226,6 +205,12 @@ class BudgetCreateView(CreateView):
             return self.form_invalid(form)
 
         return super().form_valid(form)
+    
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['start_date'] = date(timezone.now().year, timezone.now().month, 1)
+        initial['end_date'] = date(timezone.now().year, timezone.now().month, calendar.monthrange(timezone.now().year, timezone.now().month)[1])
+        return initial
 
 
 class BudgetUpdateView(UpdateView):
@@ -242,23 +227,15 @@ class BudgetDeleteView(DeleteView):
 
 
 # SavingsGoal Views
-from datetime import date
-
 class SavingsGoalListView(ListView):
     model = SavingsGoal
     template_name = 'core/savings_goal_list.html'
     context_object_name = 'savings_goals'
 
     def get_queryset(self):
-        """
-        Show savings goals for the current user.
-        """
         return SavingsGoal.objects.filter(user=self.request.user)
 
     def get_context_data(self, **kwargs):
-        """
-        Add remaining days to deadline in context.
-        """
         context = super().get_context_data(**kwargs)
         savings_goals = self.get_queryset()
         for goal in savings_goals:

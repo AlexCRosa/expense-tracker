@@ -3,6 +3,7 @@
 {% block content %}
 <h2>Expenses</h2>
 <a href="{% url 'core:expense_create' %}" class="btn btn-primary">+ Add Expense</a>
+<a href="{% url 'core:category_list' %}" class="btn btn-primary"> Manage Categories</a>
 <table class="table mt-3">
     <thead>
         <tr>

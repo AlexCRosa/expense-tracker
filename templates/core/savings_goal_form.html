@@ -1,26 +1,28 @@
 {% extends "base.html" %}
 
+{% block title %}Create Savings Goal - Talon Expense Tracker{% endblock title %}
+
 {% block content %}
 <h2>{% if object %}Edit Savings Goal{% else %}Create Savings Goal{% endif %}</h2>
 <form method="post">
     {% csrf_token %}
     <div class="mb-3">
-        <label for="id_goal_name" class="form-label">Goal Name:</label>
+        <label for="id_goal_name">Goal Name:</label>
         {{ form.goal_name }}
     </div>
     <div class="mb-3">
-        <label for="id_target_amount" class="form-label">Goal Amount:</label>
+        <label for="id_target_amount">Goal Amount:</label>
         {{ form.target_amount }}
     </div>
     <div class="mb-3">
-        <label for="id_current_amount" class="form-label">Amount Saved:</label>
+        <label for="id_current_amount">Amount Saved:</label>
         {{ form.current_amount }}
     </div>
     <div class="mb-3">
-        <label for="id_deadline" class="form-label">Deadline:</label>
-        {{ form.deadline }}
+        <label for="id_deadline">Deadline:</label>
+        <input type="date" name="deadline" id="id_deadline" value="{{ form.deadline.value|date:'Y-m-d' }}">
     </div>
-    <button type="submit" class="btn btn-success">{% if object %}Save Changes{% else %}Create Goal{% endif %}</button>
-    <a href="{% url 'core:savings_goal_list' %}" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary mt-3">{% if object %}Save Changes{% else %}Create Goal{% endif %}</button>
+    <a href="{% url 'core:savings_goal_list' %}" class="btn btn-secondary mt-3">Cancel</a>
 </form>
 {% endblock %}

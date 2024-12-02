@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block title %}Create Budget - Talon Expense Tracker{% endblock title %}
+
 {% block content %}
 <h2>{% if object %}Edit{% else %}Add{% endif %} Budget</h2>
 {% for message in messages %}
@@ -7,8 +9,24 @@
     {% endfor %}
 <form method="post">
     {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">{% if object %}Update{% else %}Create{% endif %}</button>
+    <div class="mb-3">
+        <label for="id_category">Category:</label>
+        {{ form.category }}
+    </div>
+    <div class="mb-3">
+        <label for="id_amount">Amount:</label>
+        {{ form.amount }}
+    </div>
+    <div class="mb-3">
+        <label for="id_start_date">Start Date:</label>
+        <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|date:'Y-m-d' }}">
+    </div>
+    <div class="mb-3">
+        <label for="id_end_date">End Date:</label>
+        <input type="date" name="end_date" id="id_end_date" value="{{ form.end_date.value|date:'Y-m-d' }}">
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">{% if object %}Update{% else %}Create Budget{% endif %}</button>
+    <a href="{% url 'core:budget_list' %}" class="btn btn-secondary mt-3">Cancel</a>
 </form>
-<a href="{% url 'core:budget_list' %}" class="btn btn-secondary mt-3">Back to Budgets</a>
+
 {% endblock %}
