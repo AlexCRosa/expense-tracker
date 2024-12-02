@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+    {% load static %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Expense Tracker{% endblock title %}</title>
@@ -12,7 +13,9 @@
 <body>
     <nav class="navbar navbar-expand-lg bg-body-tertiary">
         <div class="container-fluid">
-            <a class="navbar-brand" href="{% url 'home' %}">Expense Tracker</a>
+            <a class="navbar-brand" href="{% if user.is_authenticated %}{% url 'dashboard' %}{% else %}{% url 'home' %}{% endif %}">
+                <img src="{% static 'images/talon.png' %}" alt="Logo" height="40">
+            </a>            
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent"
                     aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
@@ -22,6 +25,19 @@
                     {% if user.is_authenticated %}
                         <li class="nav-item">
                             <a href="{% url 'dashboard' %}" class="nav-link px-2 link-dark">Dashboard</a>
+                        </li>
+                        
+                        <li class="nav-item">
+                            <a href="{% url 'core:expense_list' %}" class="nav-link px-2">Expenses</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'core:income_list' %}" class="nav-link px-2">Incomes</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'core:budget_list' %}" class="nav-link px-2">Budgets</a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{% url 'core:savings_goal_list' %}" class="nav-link px-2">Savings Goals</a>
                         </li>
                     {% endif %}
                 </ul>
