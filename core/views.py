@@ -1,17 +1,89 @@
-from django.views.generic import ListView, CreateView, UpdateView, DeleteView
+from django.views.generic import ListView, CreateView, UpdateView, DeleteView, TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from .models import Category, Expense, Income, Budget, SavingsGoal
+from django.urls import reverse_lazy
+
 from django.http import HttpResponseRedirect
 from django.contrib import messages
-from django.urls import reverse_lazy
-from .models import Category, Expense, Income, Budget, SavingsGoal
+
 from django.utils import timezone
-from datetime import date
+from datetime import date, datetime
 import calendar
-from django.db.models import Sum, F, Value, DecimalField
-from django.db.models.functions import Coalesce
+
+from django.db.models import Sum, F, Q, Value, DecimalField, ExpressionWrapper
+from django.db.models.functions import Coalesce, TruncMonth
+
+from django.db import connection
+
+
+class DashboardView(LoginRequiredMixin, TemplateView):
+    template_name = 'dashboard.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+
+        # Get the selected month from the query params, default to the current month
+        selected_month = self.request.GET.get('month')
+        selected_year = self.request.GET.get('year')
+
+        # Fallback to current month/year if none is selected
+        today = timezone.now()
+        current_month = today.month
+        current_year = today.year
+
+        month = int(selected_month) if selected_month else current_month
+        year = int(selected_year) if selected_year else current_year
+
+        # Add month names to the context
+        context['month_choices'] = [(i, calendar.month_name[i]) for i in range(1, 13)]
+        context['current_month'] = current_month
+        context['current_year'] = current_year
+        context['selected_month'] = month
+        context['selected_year'] = year
+
+        # Other context data...
+        context['last_expenses'] = Expense.objects.filter(
+            user=user,
+            date__month=month,
+            date__year=year
+        ).order_by('-date')[:3]
+
+        # Savings Goals (no filtering by month/year)
+        savings_goals = SavingsGoal.objects.filter(user=user)
+        for goal in savings_goals:
+            goal.percentage_achieved = (goal.current_amount / goal.target_amount) * 100 if goal.target_amount else 0
+            goal.days_to_deadline = (goal.deadline - timezone.now().date()).days
+        context['savings_goals'] = savings_goals
+
+        # Budgets Overview for the selected month/year
+        budgets = Budget.objects.filter(user=user).annotate(
+            value_spent=Sum(
+                'category__expenses__amount',
+                filter=Q(category__expenses__date__month=month, category__expenses__date__year=year)
+            ),
+            remaining_budget=ExpressionWrapper(
+                F('amount') - Coalesce(Sum('category__expenses__amount', filter=Q(
+                    category__expenses__date__month=month,
+                    category__expenses__date__year=year
+                )), Value(0)),
+                output_field=DecimalField()
+            )
+        )
+        context['budgets'] = budgets
+
+        # Total Income for the selected month/year
+        context['total_income'] = Income.objects.filter(
+            user=user,
+            date__year=year,
+            date__month=month
+        ).aggregate(Sum('amount'))['amount__sum'] or 0
+
+        return context
 
 
 # Category Views
-class CategoryListView(ListView):
+class CategoryListView(LoginRequiredMixin, ListView):
     model = Category
     template_name = 'core/category_list.html'
     context_object_name = 'categories'
@@ -24,7 +96,7 @@ class CategoryListView(ListView):
         return user_categories | default_categories
 
 
-class CategoryCreateView(CreateView):
+class CategoryCreateView(LoginRequiredMixin, CreateView):
     model = Category
     fields = ['name', 'description']
     template_name = 'core/category_form.html'
@@ -43,7 +115,7 @@ class CategoryCreateView(CreateView):
         return reverse_lazy('core:category_list')
 
 
-class CategoryUpdateView(UpdateView):
+class CategoryUpdateView(LoginRequiredMixin, UpdateView):
     model = Category
     fields = ['name', 'description']  # Include both fields
     template_name = 'core/category_form.html'
@@ -75,14 +147,14 @@ class CategoryUpdateView(UpdateView):
         return reverse_lazy('core:category_list')
 
 
-class CategoryDeleteView(DeleteView):
+class CategoryDeleteView(LoginRequiredMixin, DeleteView):
     model = Category
     template_name = 'core/category_confirm_delete.html'
     success_url = reverse_lazy('core:category_list')
 
 
 # Expense Views
-class ExpenseListView(ListView):
+class ExpenseListView(LoginRequiredMixin, ListView):
     model = Expense
     template_name = 'core/expense_list.html'
 
@@ -90,7 +162,7 @@ class ExpenseListView(ListView):
         return Expense.objects.filter(user=self.request.user)
 
 
-class ExpenseCreateView(CreateView):
+class ExpenseCreateView(LoginRequiredMixin, CreateView):
     model = Expense
     fields = ['amount', 'category', 'description', 'date']
     template_name = 'core/expense_form.html'
@@ -107,21 +179,21 @@ class ExpenseCreateView(CreateView):
         return initial
 
 
-class ExpenseUpdateView(UpdateView):
+class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
     model = Expense
     fields = ['amount', 'category', 'description', 'date']
     template_name = 'core/expense_form.html'
     success_url = reverse_lazy('core:expense_list')
 
 
-class ExpenseDeleteView(DeleteView):
+class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
     model = Expense
     template_name = 'core/expense_confirm_delete.html'
     success_url = reverse_lazy('core:expense_list')
 
 
 # Income Views
-class IncomeListView(ListView):
+class IncomeListView(LoginRequiredMixin, ListView):
     model = Income
     template_name = 'core/income_list.html'
 
@@ -129,7 +201,7 @@ class IncomeListView(ListView):
         return Income.objects.filter(user=self.request.user)
 
 
-class IncomeCreateView(CreateView):
+class IncomeCreateView(LoginRequiredMixin, CreateView):
     model = Income
     fields = ['amount', 'description', 'date']
     template_name = 'core/income_form.html'
@@ -145,21 +217,21 @@ class IncomeCreateView(CreateView):
         return initial
 
 
-class IncomeUpdateView(UpdateView):
+class IncomeUpdateView(LoginRequiredMixin, UpdateView):
     model = Income
     fields = ['amount', 'description', 'date']
     template_name = 'core/income_form.html'
     success_url = reverse_lazy('core:income_list')
 
 
-class IncomeDeleteView(DeleteView):
+class IncomeDeleteView(LoginRequiredMixin, DeleteView):
     model = Income
     template_name = 'core/income_confirm_delete.html'
     success_url = reverse_lazy('core:income_list')
 
 
 # Budget Views
-class BudgetListView(ListView):
+class BudgetListView(LoginRequiredMixin, ListView):
     model = Budget
     template_name = 'core/budget_list.html'
 
@@ -192,7 +264,7 @@ class BudgetListView(ListView):
         return context
 
 
-class BudgetCreateView(CreateView):
+class BudgetCreateView(LoginRequiredMixin, CreateView):
     model = Budget
     fields = ['category', 'amount', 'start_date', 'end_date']
     template_name = 'core/budget_form.html'
@@ -213,21 +285,21 @@ class BudgetCreateView(CreateView):
         return initial
 
 
-class BudgetUpdateView(UpdateView):
+class BudgetUpdateView(LoginRequiredMixin, UpdateView):
     model = Budget
     fields = ['category', 'amount', 'start_date', 'end_date']
     template_name = 'core/budget_form.html'
     success_url = reverse_lazy('core:budget_list')
 
 
-class BudgetDeleteView(DeleteView):
+class BudgetDeleteView(LoginRequiredMixin, DeleteView):
     model = Budget
     template_name = 'core/budget_confirm_delete.html'
     success_url = reverse_lazy('core:budget_list')
 
 
 # SavingsGoal Views
-class SavingsGoalListView(ListView):
+class SavingsGoalListView(LoginRequiredMixin, ListView):
     model = SavingsGoal
     template_name = 'core/savings_goal_list.html'
     context_object_name = 'savings_goals'
@@ -247,7 +319,7 @@ class SavingsGoalListView(ListView):
         return context
 
 
-class SavingsGoalCreateView(CreateView):
+class SavingsGoalCreateView(LoginRequiredMixin, CreateView):
     model = SavingsGoal
     fields = ['goal_name', 'target_amount', 'current_amount', 'deadline']
     template_name = 'core/savings_goal_form.html'
@@ -258,14 +330,14 @@ class SavingsGoalCreateView(CreateView):
         return super().form_valid(form)
 
 
-class SavingsGoalUpdateView(UpdateView):
+class SavingsGoalUpdateView(LoginRequiredMixin, UpdateView):
     model = SavingsGoal
     fields = ['goal_name', 'target_amount', 'current_amount', 'deadline']
     template_name = 'core/savings_goal_form.html'
     success_url = reverse_lazy('core:savings_goal_list')
 
 
-class SavingsGoalDeleteView(DeleteView):
+class SavingsGoalDeleteView(LoginRequiredMixin, DeleteView):
     model = SavingsGoal
     template_name = 'core/savings_goal_confirm_delete.html'
     success_url = reverse_lazy('core:savings_goal_list')

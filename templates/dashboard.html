@@ -1,4 +1,126 @@
 {% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
 {% block content %}
-    <h2>Welcome, {{ user.first_name }} {{ user.last_name }}!</h2>
+
+<div class="container mt-4">
+    <h1>Dashboard</h1>
+
+    <!-- Month Selector -->
+    <form method="GET" class="d-flex align-items-center mb-4">
+        <div class="me-3">
+            <label for="month" class="form-label d-inline me-2">Select Month</label>
+            <select id="month" name="month" class="form-select d-inline" style="width: auto;">
+                {% for number, name in month_choices %}
+                    <option value="{{ number }}" {% if selected_month == number %}selected{% endif %}>
+                        {{ name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="me-3">
+            <label for="year" class="form-label d-inline me-2">Select Year</label>
+            <input type="number" id="year" name="year" class="form-control d-inline" style="width: auto;" value="{{ selected_year }}">
+        </div>
+        <div>
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </div>
+    </form>
+    
+    <!-- Income Summary -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Income Summary</h5>
+            <p>Total Income This Month: ${{ total_income|floatformat:2 }}</p>
+        </div>
+    </div>
+
+    <!-- Last 3 Expenses -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Last 3 Expenses</h5>
+            <ul>
+                {% for expense in last_expenses %}
+                <li>{{ expense.date|date:"M. d, Y" }}: ${{ expense.amount|floatformat:2 }} - {{ expense.category }}</li>
+                {% empty %}
+                <p>No expenses added yet.</p>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Current State of Savings Goals -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Current State of Savings Goals</h5>
+            {% if savings_goals %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Goal Name</th>
+                        <th>Target Amount</th>
+                        <th>Current Amount</th>
+                        <th>Percentage Achieved</th>
+                        <th>Deadline</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for goal in savings_goals %}
+                    <tr>
+                        <td>{{ goal.goal_name }}</td>
+                        <td>${{ goal.target_amount|floatformat:2 }}</td>
+                        <td>${{ goal.current_amount|floatformat:2 }}</td>
+                        <td>{{ goal.percentage_achieved|floatformat:2 }}%</td>
+                        <td>
+                            {{ goal.deadline|date:"M. d, Y" }}
+                            {% if goal.days_to_deadline > 0 %}
+                            ({{ goal.days_to_deadline }} days to go)
+                            {% else %}
+                            (Deadline passed)
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No savings goals yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Budgets Overview -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Budgets Overview</h5>
+            {% if budgets %}
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Budget Defined</th>
+                        <th>Value Spent</th>
+                        <th>Remaining Budget</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for budget in budgets %}
+                    <tr>
+                        <td>{{ budget.category }}</td>
+                        <td>${{ budget.budget_defined|floatformat:2 }}</td>
+                        <td>${{ budget.value_spent|floatformat:2 }}</td>
+                        <td>${{ budget.remaining_budget|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p>No budgets set yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
 {% endblock %}

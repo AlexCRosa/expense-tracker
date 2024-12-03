@@ -8,6 +8,7 @@ from django.contrib.auth.views import (LoginView, LogoutView, PasswordChangeView
                                        PasswordResetDoneView, PasswordResetConfirmView, 
                                        PasswordResetCompleteView,
 )
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 
 # Signup View
@@ -28,7 +29,7 @@ class CustomLoginView(LoginView):
     template_name = 'registration/login.html'
 
     def get_success_url(self):
-        return reverse_lazy('dashboard')
+        return reverse_lazy('core:dashboard')
 
 
 # Custom Logout View
@@ -37,13 +38,13 @@ class CustomLogoutView(LogoutView):
 
 
 # Password Change View
-class CustomPasswordChangeView(PasswordChangeView):
+class CustomPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     template_name = 'registration/password_change.html'
     success_url = reverse_lazy('accounts:password_change_done')
 
 
 # Password Change Done View
-class CustomPasswordChangeDoneView(PasswordChangeDoneView):
+class CustomPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
     template_name = 'registration/password_change_done.html'
 
 

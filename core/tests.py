@@ -1,9 +1,89 @@
-from django.test import TestCase
+from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 from core.models import User, Expense, Income, Category, Budget, SavingsGoal
+
+
+class DashboardViewTests(TestCase):
+    def setUp(self):
+        # Create a test user and log them in
+        self.user = User.objects.create_user(username='testuser', email='testuser@example.com', password='testpassword')
+        self.other_user = User.objects.create_user(username='otheruser', email='otheruser@example.com', password='otherpassword')
+        self.client.login(username='testuser', password='testpassword')
+
+        # Create a category for expenses
+        self.category = Category.objects.create(name="Groceries", user=self.user)
+
+        # Create some expenses for the user
+        Expense.objects.create(user=self.user, amount=999, category=self.category, date=datetime(2024, 11, 5))
+        Expense.objects.create(user=self.user, amount=100, category=self.category, date=datetime(2024, 11, 10))
+        Expense.objects.create(user=self.user, amount=200, category=self.category, date=datetime(2024, 11, 15))
+        Expense.objects.create(user=self.user, amount=50, category=self.category, date=datetime(2024, 11, 20))
+
+        # Create a budget for the user
+        self.budget = Budget.objects.create(user=self.user, category=self.category, amount=500, start_date="2024-11-01", end_date="2024-11-30")
+
+        # Create a savings goal for the user
+        self.savings_goal = SavingsGoal.objects.create(
+            user=self.user,
+            goal_name="Vacation",
+            target_amount=1000,
+            current_amount=200,
+            deadline=datetime(2024, 12, 31),
+        )
+
+        # Create an income entry for the user
+        self.income1 = Income.objects.create(user=self.user, amount=100.50, description="Salary", date="2024-11-01")
+        self.income2 = Income.objects.create(user=self.user, amount=50.75, description="Freelance", date="2024-11-15")
+
+    def test_dashboard_access(self):
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Dashboard")
+
+    def test_last_three_expenses_displayed(self):
+        response = self.client.get(reverse('core:dashboard') + '?month=11&year=2024')
+        self.assertContains(response, "50.00")
+        self.assertContains(response, "200.00")
+        self.assertContains(response, "100.00")
+
+    def test_budget_overview(self):
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertContains(response, "Groceries")
+        self.assertContains(response, "500.00")
+
+    def test_savings_goals_display(self):
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertContains(response, "Vacation")
+        self.assertContains(response, "1000.00")
+        self.assertContains(response, "200.00")
+
+    def test_income_summary(self):
+        response = self.client.get(reverse('core:dashboard') + '?month=11&year=2024')
+        self.assertContains(response, "Total Income This Month")
+        self.assertContains(response, "151.25")
+
+    def test_filter_by_month_and_year(self):
+        response = self.client.get(reverse('core:dashboard') + '?month=11&year=2024')
+        self.assertContains(response, "50.00")
+        self.assertContains(response, "200.00")
+        self.assertContains(response, "100.00")
+
+    def test_dashboard_unauthenticated_redirect(self):
+        self.client.logout()
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertRedirects(response, f"{reverse('accounts:login')}?next=/dashboard/")
+        
+    def test_no_data_message(self):
+        self.client.logout()        
+        self.client.login(username='otheruser', password='otherpassword')
+
+        response = self.client.get(reverse('core:dashboard'))
+        self.assertContains(response, "No expenses added yet.")
+        self.assertContains(response, "No savings goals yet.")
+        self.assertContains(response, "No budgets set yet.")
 
 
 class UserManagersTest(TestCase):

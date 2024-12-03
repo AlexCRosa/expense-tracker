@@ -4,6 +4,9 @@ from . import views
 app_name = 'core'
 
 urlpatterns = [
+
+    path('dashboard/', views.DashboardView.as_view(), name='dashboard'),
+
     path('categories/', views.CategoryListView.as_view(), name='category_list'),
     path('categories/create/', views.CategoryCreateView.as_view(), name='category_create'),
     path('categories/<int:pk>/edit/', views.CategoryUpdateView.as_view(), name='category_update'),
