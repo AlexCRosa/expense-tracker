@@ -44,7 +44,7 @@ class UserLoginTests(TestCase):
         })
 
         self.assertEqual(response.status_code, 302)
-        self.assertRedirects(response, reverse('dashboard'))
+        self.assertRedirects(response, reverse('core:dashboard'))
 
     def test_user_login_failure(self):
         login_url = reverse('accounts:login')
