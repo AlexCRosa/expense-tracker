@@ -2,6 +2,7 @@ from django.test import TestCase, Client
 from django.urls import reverse
 from django.contrib.auth import get_user_model
 from datetime import date, timedelta, datetime
+from django.db.models import Sum
 
 from core.models import User, Expense, Income, Category, Budget, SavingsGoal
 
@@ -64,6 +65,20 @@ class DashboardViewTests(TestCase):
         response = self.client.get(reverse('core:dashboard') + '?month=11&year=2024')
         self.assertContains(response, "Total Income This Month")
         self.assertContains(response, "151.25")
+
+    def test_balance_section(self):
+        response = self.client.get(reverse('core:dashboard') + '?month=11&year=2024')
+
+        # Calculate expected balance
+        total_income = Income.objects.filter(user=self.user, date__month=11, date__year=2024).aggregate(total=Sum('amount'))['total']
+        total_expenses = Expense.objects.filter(user=self.user, date__month=11, date__year=2024).aggregate(total=Sum('amount'))['total']
+        expected_balance = total_income - total_expenses
+
+        # Verify the balance calculation
+        if expected_balance >= 0:
+            self.assertContains(response, f"${expected_balance:.2f}", html=True)
+        else:
+            self.assertContains(response, f"$-{abs(expected_balance):.2f}", html=True)
 
     def test_filter_by_month_and_year(self):
         response = self.client.get(reverse('core:dashboard') + '?month=11&year=2024')

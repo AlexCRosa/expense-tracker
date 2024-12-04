@@ -58,6 +58,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         # Budgets Overview for the selected month/year
         budgets = Budget.objects.filter(user=user).annotate(
+            budget_defined=F('amount'),
             value_spent=Sum(
                 'category__expenses__amount',
                 filter=Q(category__expenses__date__month=month, category__expenses__date__year=year)
@@ -78,6 +79,22 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             date__year=year,
             date__month=month
         ).aggregate(Sum('amount'))['amount__sum'] or 0
+
+        # Balance calculation
+        total_income = Income.objects.filter(
+            user=user,
+            date__year=year,
+            date__month=month
+        ).aggregate(Sum('amount'))['amount__sum'] or 0
+
+        total_expenses = Expense.objects.filter(
+            user=user,
+            date__year=year,
+            date__month=month
+        ).aggregate(Sum('amount'))['amount__sum'] or 0
+
+        balance = total_income - total_expenses
+        context['balance'] = balance
 
         return context
 

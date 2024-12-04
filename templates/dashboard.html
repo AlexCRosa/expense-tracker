@@ -31,8 +31,27 @@
     <!-- Income Summary -->
     <div class="card mb-4">
         <div class="card-body">
-            <h5 class="card-title">Income Summary</h5>
-            <p>Total Income This Month: ${{ total_income|floatformat:2 }}</p>
+            <div class="row">
+
+                <!-- Balance Section -->
+                <div class="col-md-6">
+                    <h5 class="card-title" style='display:inline'>Your Balance</h5><p style='display:inline'> (Income - Expenses)</p>
+                    <h3>
+                        {% if balance >= 0 %}
+                            <span class="text-success">${{ balance|floatformat:2 }}</span>
+                        {% else %}
+                            <span class="text-danger">${{ balance|floatformat:2 }}</span>
+                        {% endif %}
+                    </h3>
+                </div>
+
+                <!-- Income Summary Section -->
+                <div class="col-md-6">
+                    <h5 class="card-title">Income Summary</h5>
+                    <p>Total Income This Month: ${{ total_income|floatformat:2 }}</p>
+                </div>
+    
+            </div>
         </div>
     </div>
 
