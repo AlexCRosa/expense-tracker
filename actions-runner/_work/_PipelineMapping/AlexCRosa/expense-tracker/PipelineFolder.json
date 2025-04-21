@@ -1,0 +1,12 @@
+﻿{
+  "repositoryName": "AlexCRosa/expense-tracker",
+  "pipelineDirectory": "expense-tracker",
+  "workspaceDirectory": "expense-tracker/expense-tracker",
+  "repositories": {
+    "AlexCRosa/expense-tracker": {
+      "repositoryPath": "expense-tracker/expense-tracker",
+      "lastRunOn": "04/20/2025 21:31:05 -04:00"
+    }
+  },
+  "lastRunOn": "04/20/2025 22:33:05 -04:00"
+}
