@@ -34,11 +34,6 @@ jobs:
         with:
           version: 'latest'
 
-      - name: Set up kubeconfig file
-        run: |
-          mkdir -p $HOME/.kube
-          echo "${{ secrets.KUBECONFIG }}" | base64 -d > $HOME/.kube/config
-
       - name: Deploy to Kubernetes
         run: |
           kubectl apply -f $K8S_DIR/deployment.yaml
