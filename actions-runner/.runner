@@ -1,0 +1,9 @@
+﻿{
+  "agentId": 2,
+  "agentName": "localhost",
+  "poolId": 1,
+  "poolName": "Default",
+  "serverUrl": "https://pipelinesghubeus2.actions.githubusercontent.com/Fn1kZf2ufsoBNTpGSMWQzlr8UgT8mqWyn07c93tHeZQzrWTA3v/",
+  "gitHubUrl": "https://github.com/AlexCRosa/expense-tracker",
+  "workFolder": "_work"
+}
