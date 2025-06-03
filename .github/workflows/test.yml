@@ -26,6 +26,10 @@ jobs:
     - name: Run migrations
       run: |
         python manage.py migrate
+      env:
+        DJANGO_SECRET_KEY: "ci-dummy-secret-key-12345!@#$"
+        DJANGO_DEBUG: "True"
+        DJANGO_ALLOWED_HOSTS: "127.0.0.1,localhost"
 
     - name: Run tests
       run: |
