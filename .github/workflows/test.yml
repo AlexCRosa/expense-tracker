@@ -23,13 +23,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+    - name: Set Django Environment Variables
+      run: |
+        echo "DJANGO_SECRET_KEY=ci-dummy-secret-key-12345!@#$" >> $GITHUB_ENV
+        echo "DJANGO_DEBUG=True" >> $GITHUB_ENV
+        echo "DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost" >> $GITHUB_ENV
+
     - name: Run migrations
       run: |
         python manage.py migrate
-      env:
-        DJANGO_SECRET_KEY: "ci-dummy-secret-key-12345!@#$"
-        DJANGO_DEBUG: "True"
-        DJANGO_ALLOWED_HOSTS: "127.0.0.1,localhost"
 
     - name: Run tests
       run: |
