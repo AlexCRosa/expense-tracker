@@ -35,18 +35,23 @@ jobs:
           ${{ secrets.DOCKER_USERNAME }}/expense-tracker:${{ github.sha }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        build-args: |
+          DJANGO_SECRET_KEY_BUILD=${{ secrets.DJANGO_SECRET_KEY_PROD }}
     
     - name: Deploy locally (pull and run)
       run: |
-        docker stop expense-tracker || true
-        docker rm expense-tracker || true
+        docker stop expense-tracker-CI || true
+        docker rm expense-tracker-CI || true
         
         docker pull ${{ secrets.DOCKER_USERNAME }}/expense-tracker:latest
         
         docker run -d \
-          --name expense-tracker \
+          --name expense-tracker-CI \
           -p 8000:8000 \
           --restart unless-stopped \
+          -e DJANGO_SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY_PROD }} \
+          -e DJANGO_DEBUG=False \
+          -e DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1 \
           ${{ secrets.DOCKER_USERNAME }}/expense-tracker:latest
     
     - name: Wait for container to be ready

@@ -12,7 +12,9 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY .env .env
+ARG DJANGO_SECRET_KEY_BUILD
+ENV DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY_BUILD}
+
 COPY . .
 
 RUN python manage.py migrate
