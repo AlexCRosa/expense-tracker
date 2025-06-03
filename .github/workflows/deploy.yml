@@ -37,6 +37,8 @@ jobs:
         cache-to: type=gha,mode=max
         build-args: |
           DJANGO_SECRET_KEY_BUILD=${{ secrets.DJANGO_SECRET_KEY_PROD }}
+          DJANGO_DEBUG_BUILD=False
+          DJANGO_ALLOWED_HOSTS_BUILD=localhost,127.0.0.1
     
     - name: Deploy locally (pull and run)
       run: |
