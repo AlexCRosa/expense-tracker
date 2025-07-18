@@ -24,6 +24,7 @@ ENV DJANGO_ALLOWED_HOSTS=${DJANGO_ALLOWED_HOSTS_BUILD}
 COPY . .
 
 RUN python manage.py migrate
+RUN python manage.py add_default_categories
 
 # Create a non-root user
 RUN adduser --disabled-password --gecos '' admin
