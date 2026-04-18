@@ -1,5 +1,10 @@
 # Talon Expense Tracker
 
+[![CI](https://github.com/AlexCRosa/expense-tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/AlexCRosa/expense-tracker/actions/workflows/ci.yml)
+[![CD](https://github.com/AlexCRosa/expense-tracker/actions/workflows/cd.yml/badge.svg)](https://github.com/AlexCRosa/expense-tracker/actions/workflows/cd.yml)
+[![CodeQL](https://github.com/AlexCRosa/expense-tracker/actions/workflows/codeql.yml/badge.svg)](https://github.com/AlexCRosa/expense-tracker/actions/workflows/codeql.yml)
+[![Docker Hub](https://img.shields.io/docker/pulls/alexcrosa/expense-tracker)](https://hub.docker.com/r/alexcrosa/expense-tracker)
+
 **It is a project created in the Python Project Development class at Wake Technical Community College.**
 
 The **Expense Tracker** project is a web application designed to help users efficiently manage their personal finances. Built using Python and the Django framework, the application provides a simple and intuitive platform for users to log their income and expenses, categorize transactions, set budgets, and track savings goals.
