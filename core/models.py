@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.db import models
 from django.utils import timezone
 
 
@@ -14,22 +14,26 @@ class User(AbstractUser):
 
 
 class Category(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='categories', null=True, blank=True)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="categories", null=True, blank=True
+    )
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
 
     class Meta:
-        verbose_name_plural = 'Categories'
-        unique_together = ['user', 'name']
+        verbose_name_plural = "Categories"
+        unique_together = ["user", "name"]
 
     def __str__(self):
         return self.name
 
 
 class Expense(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='expenses')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="expenses")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, related_name='expenses')
+    category = models.ForeignKey(
+        Category, on_delete=models.SET_NULL, null=True, related_name="expenses"
+    )
     description = models.TextField(blank=True, null=True)
     date = models.DateField(default=timezone.now)
 
@@ -38,9 +42,11 @@ class Expense(models.Model):
 
 
 class Income(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='incomes')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="incomes")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    description = models.TextField(verbose_name="Source of Income", blank=True, null=True)
+    description = models.TextField(
+        verbose_name="Source of Income", blank=True, null=True
+    )
     date = models.DateField(verbose_name="Date of Credit", default=timezone.now)
 
     def __str__(self):
@@ -48,7 +54,7 @@ class Income(models.Model):
 
 
 class Budget(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='budgets')
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="budgets")
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     start_date = models.DateField()
@@ -59,7 +65,9 @@ class Budget(models.Model):
 
 
 class SavingsGoal(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='savings_goals')
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="savings_goals"
+    )
     goal_name = models.CharField(max_length=200)
     target_amount = models.DecimalField(max_digits=10, decimal_places=2)
     current_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
@@ -67,4 +75,3 @@ class SavingsGoal(models.Model):
 
     def __str__(self):
         return f"{self.goal_name} - {self.current_amount}/{self.target_amount}"
-    

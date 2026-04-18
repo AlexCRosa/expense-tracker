@@ -5,20 +5,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0004_expense_date_income_date'),
+        ("core", "0004_expense_date_income_date"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='income',
-            name='date',
-            field=models.DateField(default=django.utils.timezone.now, verbose_name='Date of Credit'),
+            model_name="income",
+            name="date",
+            field=models.DateField(
+                default=django.utils.timezone.now, verbose_name="Date of Credit"
+            ),
         ),
         migrations.AlterField(
-            model_name='income',
-            name='description',
-            field=models.TextField(blank=True, null=True, verbose_name='Source of Income'),
+            model_name="income",
+            name="description",
+            field=models.TextField(
+                blank=True, null=True, verbose_name="Source of Income"
+            ),
         ),
     ]
