@@ -3,8 +3,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import DecimalField, F, Q, Sum, Value
-from django.db.models.functions import Coalesce
+from django.db.models import F, Q, Sum
 from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -53,22 +52,12 @@ class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Get the selected month from the query params, default to the current month
-        selected_month = self.request.GET.get("month")
-        selected_year = self.request.GET.get("year")
-
-        # Fallback to current month/year if none is selected
+        # Fall back to the current month when the query params are absent
         today = timezone.now()
-        current_month = today.month
-        current_year = today.year
+        month = int(self.request.GET.get("month") or today.month)
+        year = int(self.request.GET.get("year") or today.year)
 
-        month = int(selected_month) if selected_month else current_month
-        year = int(selected_year) if selected_year else current_year
-
-        # Add month names to the context
         context["month_choices"] = [(i, calendar.month_name[i]) for i in range(1, 13)]
-        context["current_month"] = current_month
-        context["current_year"] = current_year
         context["selected_month"] = month
         context["selected_year"] = year
 
@@ -89,53 +78,30 @@ class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
         )
 
         # Savings Goals (no filtering by month/year)
-        savings_goals = self.filter_by_person(
-            SavingsGoal.objects.with_saved_amount().select_related("user")
-        )
+        savings_goals = self.filter_by_person(SavingsGoal.objects.with_saved_amount())
         for goal in savings_goals:
             goal.percentage_achieved = (
                 (goal.saved_amount / goal.target_amount) * 100
                 if goal.target_amount
                 else 0
             )
-            goal.days_to_deadline = (goal.deadline - timezone.now().date()).days
         context["savings_goals"] = savings_goals
 
         # Budgets Overview for the selected month/year
-        context["budgets"] = (
-            self.filter_by_person(Budget.objects.select_related("category"))
-            .annotate(
-                value_spent=-Coalesce(
-                    Sum(
-                        "category__transactions__amount",
-                        filter=Q(
-                            category__transactions__user=F("user"),
-                            category__transactions__type__in=Transaction.SPENDING_TYPES,
-                            category__transactions__date__month=month,
-                            category__transactions__date__year=year,
-                        ),
-                    ),
-                    Value(0, output_field=DecimalField()),
-                )
-            )
-            .annotate(remaining_budget=F("amount") - F("value_spent"))
-        )
+        last_day = calendar.monthrange(year, month)[1]
+        context["budgets"] = self.filter_by_person(
+            Budget.objects.select_related("category")
+        ).with_value_spent(date(year, month, 1), date(year, month, last_day))
 
-        total_income = (
-            month_transactions.filter(type="income").aggregate(Sum("amount"))[
-                "amount__sum"
-            ]
-            or 0
+        # Internal moves cancel between their legs, so every amount counts in the balance
+        totals = month_transactions.aggregate(
+            income=Sum("amount", filter=Q(type="income")),
+            spent=Sum("amount", filter=Q(type__in=Transaction.SPENDING_TYPES)),
+            balance=Sum("amount"),
         )
-        context["total_income"] = total_income
-
-        total_expenses = -(spending.aggregate(Sum("amount"))["amount__sum"] or 0)
-        context["total_expenses"] = total_expenses
-
-        # Internal moves cancel between their two legs, so every amount counts here
-        context["balance"] = (
-            month_transactions.aggregate(Sum("amount"))["amount__sum"] or 0
-        )
+        context["total_income"] = totals["income"] or 0
+        context["total_expenses"] = -(totals["spent"] or 0)
+        context["balance"] = totals["balance"] or 0
 
         return context
 
@@ -286,28 +252,41 @@ class ReviewListView(LoginRequiredMixin, ListView):
     context_object_name = "transactions"
 
     def get_queryset(self):
+        self.showing_all = self.request.GET.get("show") == "all"
         transactions = Transaction.objects.select_related(
             "user", "account", "category", "reviewed_by"
         ).order_by("-date", "-id")
-        if self.request.GET.get("show") != "all":
+        if not self.showing_all:
             transactions = transactions.filter(reviewed=False)
         return transactions
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context["rows"] = [
-            (transaction, ReviewForm(instance=transaction))
-            for transaction in context["transactions"]
+        transactions = context["transactions"]
+
+        # One row per transaction would otherwise query the dropdowns once each
+        accounts = [(account.pk, str(account)) for account in Account.objects.all()]
+        categories = [("", "---------")] + [
+            (category.pk, str(category)) for category in Category.objects.all()
         ]
-        context["showing_all"] = self.request.GET.get("show") == "all"
-        context["unreviewed_count"] = Transaction.objects.filter(reviewed=False).count()
+        for transaction in transactions:
+            form = ReviewForm(instance=transaction)
+            form.fields["account"].choices = accounts
+            form.fields["category"].choices = categories
+            transaction.form = form
+
+        context["showing_all"] = self.showing_all
+        context["unreviewed_count"] = (
+            Transaction.objects.filter(reviewed=False).count()
+            if self.showing_all
+            else len(transactions)
+        )
         return context
 
 
 class ReviewUpdateView(LoginRequiredMixin, UpdateView):
     model = Transaction
     form_class = ReviewForm
-    template_name = "core/review_list.html"
 
     def form_valid(self, form):
         form.instance.reviewed = True
@@ -315,9 +294,13 @@ class ReviewUpdateView(LoginRequiredMixin, UpdateView):
         form.instance.reviewed_by = self.request.user
         return super().form_valid(form)
 
+    def form_invalid(self, form):
+        return HttpResponseRedirect(self.get_success_url())
+
     def get_success_url(self):
-        show = self.request.GET.get("show", "")
-        return f"{reverse_lazy('core:review_list')}?show={show}"
+        if self.request.GET.get("show") == "all":
+            return f"{reverse_lazy('core:review_list')}?show=all"
+        return reverse_lazy("core:review_list")
 
 
 class MarkAllReviewedView(LoginRequiredMixin, View):
@@ -335,25 +318,9 @@ class BudgetListView(LoginRequiredMixin, PersonFilterMixin, ListView):
     context_object_name = "budgets"
 
     def get_queryset(self):
-        # Sum each budget's own expenses within its own date range
         return self.filter_by_person(
             Budget.objects.select_related("category", "user")
-            .annotate(
-                value_spent=-Coalesce(
-                    Sum(
-                        "category__transactions__amount",
-                        filter=Q(
-                            category__transactions__user=F("user"),
-                            category__transactions__type__in=Transaction.SPENDING_TYPES,
-                            category__transactions__date__gte=F("start_date"),
-                            category__transactions__date__lte=F("end_date"),
-                        ),
-                    ),
-                    Value(0, output_field=DecimalField()),
-                )
-            )
-            .annotate(budget_available=F("amount") - F("value_spent"))
-        )
+        ).with_value_spent(F("start_date"), F("end_date"))
 
 
 class BudgetCreateView(LoginRequiredMixin, CreateView):
@@ -406,15 +373,6 @@ class SavingsGoalListView(LoginRequiredMixin, PersonFilterMixin, ListView):
         return self.filter_by_person(
             SavingsGoal.objects.with_saved_amount().select_related("user")
         )
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        for goal in context["savings_goals"]:
-            days_to_go = (goal.deadline - date.today()).days
-            goal.remaining_days = (
-                f"{days_to_go} days to go" if days_to_go > 0 else "Deadline passed"
-            )
-        return context
 
 
 class SavingsGoalCreateView(LoginRequiredMixin, CreateView):

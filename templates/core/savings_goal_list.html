@@ -31,7 +31,14 @@
             <td>${{ goal.current_amount|floatformat:2|intcomma }}</td>
             <td>${{ goal.saved_amount|floatformat:2|intcomma }}</td>
             <td>${{ goal.amount_to_goal|floatformat:2|intcomma }}</td>
-            <td>{{ goal.deadline|date:"M. d, Y" }} ({{ goal.remaining_days }})</td>
+            <td>
+                {{ goal.deadline|date:"M. d, Y" }}
+                {% if goal.days_to_deadline > 0 %}
+                ({{ goal.days_to_deadline }} days to go)
+                {% else %}
+                (Deadline passed)
+                {% endif %}
+            </td>
             <td>
                 <a href="{% url 'core:savings_goal_update' goal.pk %}" class="btn btn-warning btn-sm">Edit</a>
                 <a href="{% url 'core:savings_goal_delete' goal.pk %}" class="btn btn-danger btn-sm">Delete</a>

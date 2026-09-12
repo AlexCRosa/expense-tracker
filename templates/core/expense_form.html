@@ -66,15 +66,14 @@
 
 {% if form.fields.savings_goal.queryset %}
 <script>
-    const categoryField = document.getElementById("id_category");
+    const typeField = document.getElementById("id_type");
     const savingsGoalRow = document.getElementById("savings_goal_row");
-    const savingsCategoryId = "{{ form.savings_category_id }}";
 
     function toggleSavingsGoalRow() {
-        savingsGoalRow.hidden = categoryField.value !== savingsCategoryId;
+        savingsGoalRow.hidden = typeField.value !== "savings";
     }
 
-    categoryField.addEventListener("change", toggleSavingsGoalRow);
+    typeField.addEventListener("change", toggleSavingsGoalRow);
     toggleSavingsGoalRow();
 </script>
 {% endif %}

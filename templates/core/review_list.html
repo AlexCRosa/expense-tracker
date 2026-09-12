@@ -19,7 +19,7 @@
     </form>
 </div>
 
-{% for transaction, form in rows %}
+{% for transaction in transactions %}
 <form id="review-{{ transaction.pk }}" method="post"
       action="{% url 'core:review_update' transaction.pk %}{% if showing_all %}?show=all{% endif %}">
     {% csrf_token %}
@@ -41,14 +41,14 @@
         </tr>
     </thead>
     <tbody>
-        {% for transaction, form in rows %}
+        {% for transaction in transactions %}
         <tr>
             <td>{{ transaction.date|date:"M d, Y" }}</td>
             <td>{{ transaction.description|default_if_none:"" }}</td>
             <td>${{ transaction.amount|floatformat:2|intcomma }}</td>
-            <td>{{ form.account }}</td>
-            <td>{{ form.type }}</td>
-            <td>{{ form.category }}</td>
+            <td>{{ transaction.form.account }}</td>
+            <td>{{ transaction.form.type }}</td>
+            <td>{{ transaction.form.category }}</td>
             <td>{{ transaction.user.first_name }}</td>
             <td>
                 {% if transaction.reviewed %}

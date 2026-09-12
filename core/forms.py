@@ -34,12 +34,10 @@ class ExpenseForm(forms.ModelForm):
         self.fields["type"].choices = [
             (value, label)
             for value, label in Transaction.TYPE_CHOICES
-            if value != "income"
+            if value not in ("income", "internal")
         ]
         if self.instance.pk:
-            self.initial["amount"] = abs(self.instance.amount)
-        savings = Category.objects.filter(name="Savings").first()
-        self.savings_category_id = savings.pk if savings else ""
+            self.initial["amount"] = self.instance.absolute_amount
 
 
 class IncomeForm(forms.ModelForm):
@@ -113,12 +111,6 @@ class AccountForm(forms.ModelForm):
 class ReviewForm(forms.ModelForm):
     """The three fields a bank import is most likely to have got wrong."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # A table row cannot hold a form tag, so the fields point at one by id
-        for field in self.fields.values():
-            field.widget.attrs["form"] = f"review-{self.instance.pk}"
-
     class Meta:
         model = Transaction
         fields = ["account", "type", "category"]
@@ -127,3 +119,9 @@ class ReviewForm(forms.ModelForm):
             "type": forms.Select(attrs={"class": "form-select form-select-sm"}),
             "category": forms.Select(attrs={"class": "form-select form-select-sm"}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A table row cannot hold a form tag, so the fields point at one by id
+        for field in self.fields.values():
+            field.widget.attrs["form"] = f"review-{self.instance.pk}"

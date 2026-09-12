@@ -96,6 +96,25 @@ class Transaction(models.Model):
         return f"{self.amount} - {self.category} on {self.date}"
 
 
+class BudgetQuerySet(models.QuerySet):
+    def with_value_spent(self, start, end):
+        """Sums the owner's spending in the budget's category between two dates."""
+        return self.annotate(
+            value_spent=-Coalesce(
+                Sum(
+                    "category__transactions__amount",
+                    filter=Q(
+                        category__transactions__user=F("user"),
+                        category__transactions__type__in=Transaction.SPENDING_TYPES,
+                        category__transactions__date__gte=start,
+                        category__transactions__date__lte=end,
+                    ),
+                ),
+                Value(0, output_field=models.DecimalField()),
+            )
+        ).annotate(budget_available=F("amount") - F("value_spent"))
+
+
 class Budget(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="budgets")
     category = models.ForeignKey(Category, on_delete=models.CASCADE)
@@ -103,13 +122,15 @@ class Budget(models.Model):
     start_date = models.DateField()
     end_date = models.DateField()
 
+    objects = BudgetQuerySet.as_manager()
+
     def __str__(self):
         return f"{self.category} budget: {self.amount}"
 
 
 class SavingsGoalQuerySet(models.QuerySet):
     def with_saved_amount(self):
-        """Adds the starting amount to the savings filed against the goal in its window."""
+        """Starting amount plus the savings filed against the goal, stored negative."""
         return self.annotate(
             saved_amount=F("current_amount")
             - Coalesce(
@@ -136,6 +157,10 @@ class SavingsGoal(models.Model):
     deadline = models.DateField()
 
     objects = SavingsGoalQuerySet.as_manager()
+
+    @property
+    def days_to_deadline(self):
+        return (self.deadline - timezone.now().date()).days
 
     def __str__(self):
         return f"{self.goal_name} - {self.current_amount}/{self.target_amount}"

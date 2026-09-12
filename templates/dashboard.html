@@ -163,7 +163,7 @@
                     <td>{{ budget.category }}</td>
                     <td>${{ budget.amount|floatformat:2|intcomma }}</td>
                     <td>${{ budget.value_spent|floatformat:2|intcomma }}</td>
-                    <td>${{ budget.remaining_budget|floatformat:2|intcomma }}</td>
+                    <td>${{ budget.budget_available|floatformat:2|intcomma }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
