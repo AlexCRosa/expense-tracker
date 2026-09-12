@@ -202,7 +202,7 @@ class SavingsGoalContributionTest(TestCase):
 
     def test_savings_inside_the_window_counts(self):
         Transaction.objects.create(
-            type="expense",
+            type="savings",
             account=self.account,
             user=self.user,
             amount=250,
@@ -214,7 +214,7 @@ class SavingsGoalContributionTest(TestCase):
 
     def test_savings_outside_the_window_does_not_count(self):
         Transaction.objects.create(
-            type="expense",
+            type="savings",
             account=self.account,
             user=self.user,
             amount=250,
@@ -226,7 +226,7 @@ class SavingsGoalContributionTest(TestCase):
 
     def test_savings_with_no_goal_does_not_count(self):
         Transaction.objects.create(
-            type="expense",
+            type="savings",
             account=self.account,
             user=self.user,
             amount=250,
@@ -237,7 +237,7 @@ class SavingsGoalContributionTest(TestCase):
 
     def test_anyone_can_feed_a_goal(self):
         Transaction.objects.create(
-            type="expense",
+            type="savings",
             account=self.account,
             user=self.other_user,
             amount=400,
@@ -249,7 +249,7 @@ class SavingsGoalContributionTest(TestCase):
 
     def test_list_shows_starting_save_and_saved(self):
         Transaction.objects.create(
-            type="expense",
+            type="savings",
             account=self.account,
             user=self.user,
             amount=250,
@@ -262,6 +262,23 @@ class SavingsGoalContributionTest(TestCase):
         self.assertContains(response, "Starting Save")
         self.assertContains(response, "350")
         self.assertContains(response, "650")  # amount still to go
+
+    def test_reclassified_contribution_stops_counting(self):
+        contribution = Transaction.objects.create(
+            type="savings",
+            account=self.account,
+            user=self.user,
+            amount=250,
+            category=self.savings,
+            savings_goal=self.goal,
+            date=date(2026, 6, 1),
+        )
+        self.assertEqual(self.saved(), 350)
+
+        contribution.type = "income"
+        contribution.save()
+
+        self.assertEqual(self.saved(), 100)
 
     def test_goal_dropdown_hidden_until_a_goal_exists(self):
         response = self.client.get(reverse("core:expense_create"))
@@ -410,6 +427,131 @@ class ReviewTest(TestCase):
         self.client.logout()
         response = self.client.get(reverse("core:review_list"))
         self.assertRedirects(response, f"{reverse('accounts:login')}?next=/review/")
+
+
+class DeleteGuardTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="alex", first_name="Alex", email="a@b.c", password="pw123456"
+        )
+        self.other = User.objects.create_user(
+            username="maria", first_name="Maria", email="m@b.c", password="pw123456"
+        )
+        self.account = Account.objects.create(name="Checking")
+        self.category = Category.objects.create(name="Groceries")
+        self.budget = Budget.objects.create(
+            user=self.other,
+            category=self.category,
+            amount=300,
+            start_date=date(2026, 9, 1),
+            end_date=date(2026, 9, 30),
+        )
+        self.transaction = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            type="expense",
+            amount=50,
+            category=self.category,
+            description="COSTCO",
+            date=date(2026, 9, 5),
+        )
+        self.client.login(username="alex", password="pw123456")
+
+    def test_category_in_use_cannot_be_deleted(self):
+        response = self.client.post(
+            reverse("core:category_delete", args=[self.category.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "in use and cannot be deleted")
+        self.assertTrue(Category.objects.filter(pk=self.category.pk).exists())
+        self.assertTrue(Budget.objects.filter(pk=self.budget.pk).exists())
+
+    def test_category_page_lists_what_uses_it(self):
+        response = self.client.get(
+            reverse("core:category_delete", args=[self.category.pk])
+        )
+
+        self.assertContains(response, "COSTCO")
+        self.assertContains(response, "Maria")
+
+    def test_unused_category_still_deletes(self):
+        spare = Category.objects.create(name="Spare")
+        response = self.client.post(reverse("core:category_delete", args=[spare.pk]))
+
+        self.assertRedirects(response, reverse("core:category_list"))
+        self.assertFalse(Category.objects.filter(pk=spare.pk).exists())
+
+    def test_account_with_transactions_cannot_be_deleted(self):
+        response = self.client.post(
+            reverse("core:account_delete", args=[self.account.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "cannot be deleted")
+        self.assertTrue(Account.objects.filter(pk=self.account.pk).exists())
+
+
+class TypeCrossingTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="alex", first_name="Alex", email="a@b.c", password="pw123456"
+        )
+        self.account = Account.objects.create(name="Checking")
+        self.expense = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            type="expense",
+            amount=50,
+            date=date(2026, 9, 5),
+        )
+        self.income = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            type="income",
+            amount=3000,
+            date=date(2026, 9, 1),
+        )
+        self.client.login(username="alex", password="pw123456")
+
+    def test_expense_cannot_be_edited_as_income(self):
+        response = self.client.post(
+            reverse("core:income_update", args=[self.expense.pk]),
+            {"account": self.account.pk, "amount": 50, "date": "2026-09-05"},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.expense.refresh_from_db()
+        self.assertEqual(self.expense.type, "expense")
+        self.assertEqual(float(self.expense.amount), -50)
+
+    def test_income_cannot_be_edited_as_expense(self):
+        response = self.client.get(
+            reverse("core:expense_update", args=[self.income.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_income_cannot_be_deleted_from_the_expense_page(self):
+        response = self.client.post(
+            reverse("core:expense_delete", args=[self.income.pk])
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertTrue(Transaction.objects.filter(pk=self.income.pk).exists())
+
+
+class DashboardInputTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="alex", first_name="Alex", email="a@b.c", password="pw123456"
+        )
+        self.client.login(username="alex", password="pw123456")
+
+    def test_out_of_range_month_and_year_fall_back(self):
+        for query in ["month=13", "month=0", "year=0", "year=99999", "month=abc"]:
+            response = self.client.get(f"{reverse('core:dashboard')}?{query}")
+            self.assertEqual(response.status_code, 200, query)
 
 
 class UserManagersTest(TestCase):

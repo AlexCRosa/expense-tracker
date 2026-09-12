@@ -124,6 +124,9 @@ class Budget(models.Model):
 
     objects = BudgetQuerySet.as_manager()
 
+    class Meta:
+        unique_together = ["user", "category"]
+
     def __str__(self):
         return f"{self.category} budget: {self.amount}"
 
@@ -137,6 +140,7 @@ class SavingsGoalQuerySet(models.QuerySet):
                 Sum(
                     "contributions__amount",
                     filter=Q(
+                        contributions__type="savings",
                         contributions__date__gte=F("created_at"),
                         contributions__date__lte=F("deadline"),
                     ),

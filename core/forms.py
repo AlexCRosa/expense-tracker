@@ -29,6 +29,12 @@ class ExpenseForm(forms.ModelForm):
             ),
         }
 
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("type") != "savings":
+            cleaned["savings_goal"] = None
+        return cleaned
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["type"].choices = [

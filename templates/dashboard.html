@@ -36,7 +36,7 @@
 
             <!-- Balance Section -->
             <div class="col-md-6">
-                <h5 class="card-title" style='display:inline'>Balance</h5><p style='display:inline'> (Income - Expenses)</p>
+                <h5 class="card-title" style='display:inline'>Balance</h5><p style='display:inline'> (everything in, minus everything out)</p>
                 <h3>
                     {% if balance >= 0 %}
                         <span class="text-success">${{ balance|floatformat:2|intcomma }}</span>
@@ -84,7 +84,7 @@
             <tbody>
                 {% for row in spending_by_user %}
                 <tr>
-                    <td>{{ row.user__first_name }}</td>
+                    <td>{{ row.user__first_name|default:row.user__username }}</td>
                     <td>${{ row.total|floatformat:2|intcomma }}</td>
                 </tr>
                 {% empty %}

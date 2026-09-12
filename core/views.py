@@ -1,5 +1,5 @@
 import calendar
-from datetime import date
+from datetime import MAXYEAR, MINYEAR, date
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -49,13 +49,19 @@ class PersonFilterMixin:
 class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
     template_name = "dashboard.html"
 
+    def selected_number(self, param, default, lowest, highest):
+        value = self.request.GET.get(param)
+        if value and value.isdigit() and lowest <= int(value) <= highest:
+            return int(value)
+        return default
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
 
-        # Fall back to the current month when the query params are absent
+        # Fall back to the current month when the query params are absent or unusable
         today = timezone.now()
-        month = int(self.request.GET.get("month") or today.month)
-        year = int(self.request.GET.get("year") or today.year)
+        month = self.selected_number("month", today.month, 1, 12)
+        year = self.selected_number("year", today.year, MINYEAR, MAXYEAR)
 
         context["month_choices"] = [(i, calendar.month_name[i]) for i in range(1, 13)]
         context["selected_month"] = month
@@ -72,7 +78,7 @@ class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
 
         # Spending for the selected month grouped by the person who added it
         context["spending_by_user"] = (
-            spending.values("user__first_name")
+            spending.values("user_id", "user__first_name", "user__username")
             .annotate(total=-Sum("amount"))
             .order_by("-total")
         )
@@ -132,6 +138,24 @@ class CategoryDeleteView(LoginRequiredMixin, DeleteView):
     template_name = "core/category_confirm_delete.html"
     success_url = reverse_lazy("core:category_list")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["transactions"] = self.object.transactions.select_related(
+            "user", "account"
+        ).order_by("-date")
+        context["budgets"] = self.object.budget_set.select_related("user")
+        context["can_delete"] = not (
+            context["transactions"].exists() or context["budgets"].exists()
+        )
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.transactions.exists() or self.object.budget_set.exists():
+            messages.error(request, "This category is in use and cannot be deleted.")
+            return self.render_to_response(self.get_context_data())
+        return super().post(request, *args, **kwargs)
+
 
 # Account Views
 class AccountListView(LoginRequiredMixin, ListView):
@@ -158,6 +182,23 @@ class AccountDeleteView(LoginRequiredMixin, DeleteView):
     model = Account
     template_name = "core/account_confirm_delete.html"
     success_url = reverse_lazy("core:account_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["transactions"] = self.object.transactions.select_related(
+            "user", "category"
+        ).order_by("-date")
+        context["can_delete"] = not context["transactions"].exists()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.transactions.exists():
+            messages.error(
+                request, "This account has transactions and cannot be deleted."
+            )
+            return self.render_to_response(self.get_context_data())
+        return super().post(request, *args, **kwargs)
 
 
 # Expense Views
@@ -196,11 +237,17 @@ class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "core/expense_form.html"
     success_url = reverse_lazy("core:expense_list")
 
+    def get_queryset(self):
+        return Transaction.objects.exclude(type="income")
+
 
 class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
     model = Transaction
     template_name = "core/expense_confirm_delete.html"
     success_url = reverse_lazy("core:expense_list")
+
+    def get_queryset(self):
+        return Transaction.objects.exclude(type="income")
 
 
 # Income Views
@@ -238,11 +285,17 @@ class IncomeUpdateView(LoginRequiredMixin, UpdateView):
     template_name = "core/income_form.html"
     success_url = reverse_lazy("core:income_list")
 
+    def get_queryset(self):
+        return Transaction.objects.filter(type="income")
+
 
 class IncomeDeleteView(LoginRequiredMixin, DeleteView):
     model = Transaction
     template_name = "core/income_confirm_delete.html"
     success_url = reverse_lazy("core:income_list")
+
+    def get_queryset(self):
+        return Transaction.objects.filter(type="income")
 
 
 # Review Views
@@ -250,6 +303,7 @@ class ReviewListView(LoginRequiredMixin, ListView):
     model = Transaction
     template_name = "core/review_list.html"
     context_object_name = "transactions"
+    paginate_by = 50
 
     def get_queryset(self):
         self.showing_all = self.request.GET.get("show") == "all"
@@ -276,17 +330,14 @@ class ReviewListView(LoginRequiredMixin, ListView):
             transaction.form = form
 
         context["showing_all"] = self.showing_all
-        context["unreviewed_count"] = (
-            Transaction.objects.filter(reviewed=False).count()
-            if self.showing_all
-            else len(transactions)
-        )
+        context["unreviewed_count"] = Transaction.objects.filter(reviewed=False).count()
         return context
 
 
 class ReviewUpdateView(LoginRequiredMixin, UpdateView):
     model = Transaction
     form_class = ReviewForm
+    http_method_names = ["post"]
 
     def form_valid(self, form):
         form.instance.reviewed = True
@@ -295,6 +346,7 @@ class ReviewUpdateView(LoginRequiredMixin, UpdateView):
         return super().form_valid(form)
 
     def form_invalid(self, form):
+        messages.error(self.request, "That review could not be saved. Check the row.")
         return HttpResponseRedirect(self.get_success_url())
 
     def get_success_url(self):
