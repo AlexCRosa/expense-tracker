@@ -36,6 +36,13 @@ urlpatterns = [
         views.AccountDeleteView.as_view(),
         name="account_delete",
     ),
+    path("review/", views.ReviewListView.as_view(), name="review_list"),
+    path("review/<int:pk>/", views.ReviewUpdateView.as_view(), name="review_update"),
+    path(
+        "review/mark-all/",
+        views.MarkAllReviewedView.as_view(),
+        name="review_mark_all",
+    ),
     path("expenses/", views.ExpenseListView.as_view(), name="expense_list"),
     path("expenses/create/", views.ExpenseCreateView.as_view(), name="expense_create"),
     path(

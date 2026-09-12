@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
+from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import (
@@ -13,6 +14,7 @@ from django.views.generic import (
     ListView,
     TemplateView,
     UpdateView,
+    View,
 )
 
 from .forms import (
@@ -21,6 +23,7 @@ from .forms import (
     CategoryForm,
     ExpenseForm,
     IncomeForm,
+    ReviewForm,
     SavingsGoalForm,
 )
 from .models import Account, Budget, Category, SavingsGoal, Transaction, User
@@ -274,6 +277,55 @@ class IncomeDeleteView(LoginRequiredMixin, DeleteView):
     model = Transaction
     template_name = "core/income_confirm_delete.html"
     success_url = reverse_lazy("core:income_list")
+
+
+# Review Views
+class ReviewListView(LoginRequiredMixin, ListView):
+    model = Transaction
+    template_name = "core/review_list.html"
+    context_object_name = "transactions"
+
+    def get_queryset(self):
+        transactions = Transaction.objects.select_related(
+            "user", "account", "category", "reviewed_by"
+        ).order_by("-date", "-id")
+        if self.request.GET.get("show") != "all":
+            transactions = transactions.filter(reviewed=False)
+        return transactions
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["rows"] = [
+            (transaction, ReviewForm(instance=transaction))
+            for transaction in context["transactions"]
+        ]
+        context["showing_all"] = self.request.GET.get("show") == "all"
+        context["unreviewed_count"] = Transaction.objects.filter(reviewed=False).count()
+        return context
+
+
+class ReviewUpdateView(LoginRequiredMixin, UpdateView):
+    model = Transaction
+    form_class = ReviewForm
+    template_name = "core/review_list.html"
+
+    def form_valid(self, form):
+        form.instance.reviewed = True
+        form.instance.reviewed_at = timezone.now()
+        form.instance.reviewed_by = self.request.user
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        show = self.request.GET.get("show", "")
+        return f"{reverse_lazy('core:review_list')}?show={show}"
+
+
+class MarkAllReviewedView(LoginRequiredMixin, View):
+    def post(self, request):
+        Transaction.objects.filter(reviewed=False).update(
+            reviewed=True, reviewed_at=timezone.now(), reviewed_by=request.user
+        )
+        return HttpResponseRedirect(reverse_lazy("core:review_list"))
 
 
 # Budget Views

@@ -108,3 +108,22 @@ class AccountForm(forms.ModelForm):
         model = Account
         fields = ["name"]
         widgets = {"name": forms.TextInput(attrs={"class": "form-control"})}
+
+
+class ReviewForm(forms.ModelForm):
+    """The three fields a bank import is most likely to have got wrong."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # A table row cannot hold a form tag, so the fields point at one by id
+        for field in self.fields.values():
+            field.widget.attrs["form"] = f"review-{self.instance.pk}"
+
+    class Meta:
+        model = Transaction
+        fields = ["account", "type", "category"]
+        widgets = {
+            "account": forms.Select(attrs={"class": "form-select form-select-sm"}),
+            "type": forms.Select(attrs={"class": "form-select form-select-sm"}),
+            "category": forms.Select(attrs={"class": "form-select form-select-sm"}),
+        }

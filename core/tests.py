@@ -306,6 +306,112 @@ class AccountTest(TestCase):
         self.assertFalse(Account.objects.filter(pk=account.pk).exists())
 
 
+class ReviewTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="testuser",
+            first_name="Test",
+            email="testuser@example.com",
+            password="password123",
+        )
+        self.account = Account.objects.create(name="Checking")
+        self.other_account = Account.objects.create(name="Credit Card")
+        self.groceries = Category.objects.create(name="Groceries")
+        self.dining = Category.objects.create(name="Dining")
+        self.imported = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            type="expense",
+            amount=45.67,
+            category=self.groceries,
+            description="COSTCO WHSE",
+            date=date(2026, 9, 1),
+        )
+        self.client.login(username="testuser", password="password123")
+
+    def test_unreviewed_shows_by_default(self):
+        response = self.client.get(reverse("core:review_list"))
+
+        self.assertContains(response, "COSTCO WHSE")
+        self.assertContains(response, "1 transaction still to review.")
+
+    def test_reviewed_hidden_unless_showing_all(self):
+        self.imported.reviewed = True
+        self.imported.save()
+
+        response = self.client.get(reverse("core:review_list"))
+        self.assertNotContains(response, "COSTCO WHSE")
+
+        response = self.client.get(reverse("core:review_list"), {"show": "all"})
+        self.assertContains(response, "COSTCO WHSE")
+
+    def test_reviewing_records_who_and_when(self):
+        response = self.client.post(
+            reverse("core:review_update", args=[self.imported.pk]),
+            {
+                "account": self.account.pk,
+                "type": "expense",
+                "category": self.groceries.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.imported.refresh_from_db()
+        self.assertTrue(self.imported.reviewed)
+        self.assertEqual(self.imported.reviewed_by, self.user)
+        self.assertIsNotNone(self.imported.reviewed_at)
+
+    def test_correcting_the_category_saves_and_reviews(self):
+        self.client.post(
+            reverse("core:review_update", args=[self.imported.pk]),
+            {
+                "account": self.other_account.pk,
+                "type": "fee",
+                "category": self.dining.pk,
+            },
+        )
+
+        self.imported.refresh_from_db()
+        self.assertEqual(self.imported.category, self.dining)
+        self.assertEqual(self.imported.account, self.other_account)
+        self.assertEqual(self.imported.type, "fee")
+        self.assertTrue(self.imported.reviewed)
+
+    def test_reviewing_leaves_the_amount_alone(self):
+        self.client.post(
+            reverse("core:review_update", args=[self.imported.pk]),
+            {
+                "account": self.account.pk,
+                "type": "expense",
+                "category": self.groceries.pk,
+            },
+        )
+
+        self.imported.refresh_from_db()
+        self.assertEqual(float(self.imported.amount), -45.67)
+
+    def test_mark_all_reviewed(self):
+        Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            type="expense",
+            amount=10,
+            category=self.dining,
+            date=date(2026, 9, 2),
+        )
+
+        response = self.client.post(reverse("core:review_mark_all"))
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Transaction.objects.filter(reviewed=False).count(), 0)
+        self.assertEqual(Transaction.objects.filter(reviewed_by=self.user).count(), 2)
+
+    def test_review_requires_login(self):
+        self.client.logout()
+        response = self.client.get(reverse("core:review_list"))
+        self.assertRedirects(response, f"{reverse('accounts:login')}?next=/review/")
+
+
 class UserManagersTest(TestCase):
     def test_create_user(self):
         User = get_user_model()
