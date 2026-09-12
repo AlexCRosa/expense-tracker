@@ -133,11 +133,18 @@ class DashboardViewTests(TestCase):
         response = self.client.get(reverse("core:dashboard"))
         self.assertRedirects(response, f"{reverse('accounts:login')}?next=/dashboard/")
 
-    def test_no_data_message(self):
+    def test_second_user_sees_household_data(self):
         self.client.logout()
         self.client.login(username="otheruser", password="otherpassword")
 
         response = self.client.get(reverse("core:dashboard"))
+        self.assertContains(response, "Vacation")
+        self.assertContains(response, "Groceries")
+
+    def test_no_data_message(self):
+        response = self.client.get(
+            reverse("core:dashboard"), {"person": self.other_user.pk}
+        )
         self.assertContains(response, "No expenses added yet.")
         self.assertContains(response, "No savings goals yet.")
         self.assertContains(response, "No budgets set yet.")

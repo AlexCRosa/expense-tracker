@@ -43,12 +43,11 @@ class PersonFilterMixin:
         return context
 
 
-class DashboardView(LoginRequiredMixin, TemplateView):
+class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
     template_name = "dashboard.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        user = self.request.user
 
         # Get the selected month from the query params, default to the current month
         selected_month = self.request.GET.get("month")
@@ -69,30 +68,25 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["selected_month"] = month
         context["selected_year"] = year
 
-        # Last expenses across everyone, so the name on each line means something
-        context["last_expenses"] = (
+        expenses = self.filter_by_person(
             Expense.objects.filter(date__month=month, date__year=year)
-            .select_related("user", "category")
-            .order_by("-date")[:3]
         )
+
+        context["last_expenses"] = expenses.select_related("user", "category").order_by(
+            "-date"
+        )[:3]
 
         # Spending for the selected month grouped by the person who added it
         context["spending_by_user"] = (
-            Expense.objects.filter(date__year=year, date__month=month)
-            .values("user__username")
+            expenses.values("user__username")
             .annotate(total=Sum("amount"))
             .order_by("-total")
         )
 
-        context["household_spending"] = (
-            Expense.objects.filter(date__year=year, date__month=month).aggregate(
-                Sum("amount")
-            )["amount__sum"]
-            or 0
-        )
-
         # Savings Goals (no filtering by month/year)
-        savings_goals = SavingsGoal.objects.filter(user=user)
+        savings_goals = self.filter_by_person(
+            SavingsGoal.objects.select_related("user")
+        )
         for goal in savings_goals:
             goal.percentage_achieved = (
                 (goal.current_amount / goal.target_amount) * 100
@@ -104,13 +98,13 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 
         # Budgets Overview for the selected month/year
         context["budgets"] = (
-            Budget.objects.filter(user=user)
-            .select_related("category")
+            self.filter_by_person(Budget.objects.select_related("category"))
             .annotate(
                 value_spent=Coalesce(
                     Sum(
                         "category__expenses__amount",
                         filter=Q(
+                            category__expenses__user=F("user"),
                             category__expenses__date__month=month,
                             category__expenses__date__year=year,
                         ),
@@ -122,19 +116,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         )
 
         total_income = (
-            Income.objects.filter(
-                user=user, date__year=year, date__month=month
+            self.filter_by_person(
+                Income.objects.filter(date__year=year, date__month=month)
             ).aggregate(Sum("amount"))["amount__sum"]
             or 0
         )
         context["total_income"] = total_income
 
-        total_expenses = (
-            Expense.objects.filter(
-                user=user, date__year=year, date__month=month
-            ).aggregate(Sum("amount"))["amount__sum"]
-            or 0
-        )
+        total_expenses = expenses.aggregate(Sum("amount"))["amount__sum"] or 0
+        context["total_expenses"] = total_expenses
 
         context["balance"] = total_income - total_expenses
 
