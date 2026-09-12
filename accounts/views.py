@@ -13,7 +13,13 @@ from django.contrib.auth.views import (
 from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
-from .forms import CustomUserCreationForm
+from .forms import (
+    CustomAuthenticationForm,
+    CustomPasswordChangeForm,
+    CustomPasswordResetForm,
+    CustomSetPasswordForm,
+    CustomUserCreationForm,
+)
 
 
 # Signup View
@@ -32,6 +38,7 @@ class SignupView(CreateView):
 # Custom Login View
 class CustomLoginView(LoginView):
     template_name = "registration/login.html"
+    authentication_form = CustomAuthenticationForm
 
     def get_success_url(self):
         return reverse_lazy("core:dashboard")
@@ -45,6 +52,7 @@ class CustomLogoutView(LogoutView):
 # Password Change View
 class CustomPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     template_name = "registration/password_change.html"
+    form_class = CustomPasswordChangeForm
     success_url = reverse_lazy("accounts:password_change_done")
 
 
@@ -56,6 +64,7 @@ class CustomPasswordChangeDoneView(LoginRequiredMixin, PasswordChangeDoneView):
 # Password Reset View
 class CustomPasswordResetView(PasswordResetView):
     template_name = "registration/password_reset.html"
+    form_class = CustomPasswordResetForm
     success_url = reverse_lazy("accounts:password_reset_done")
 
 
@@ -67,6 +76,7 @@ class CustomPasswordResetDoneView(PasswordResetDoneView):
 # Password Reset Confirm View
 class CustomPasswordResetConfirmView(PasswordResetConfirmView):
     template_name = "registration/password_reset_confirm.html"
+    form_class = CustomSetPasswordForm
     success_url = reverse_lazy("accounts:password_reset_complete")
 
 
