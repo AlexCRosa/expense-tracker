@@ -11,9 +11,6 @@
 {% endif %}
 <form method="post">
     {% csrf_token %}
-    {% for message in messages %}
-      <div class="alert alert-success">{{ message }}</div>
-    {% endfor %}
     {% if form.name %}
     <div class="mb-3">
         <label for="id_name">Name</label>
