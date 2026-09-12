@@ -20,6 +20,22 @@ urlpatterns = [
         views.CategoryDeleteView.as_view(),
         name="category_delete",
     ),
+    path("bank-accounts/", views.AccountListView.as_view(), name="account_list"),
+    path(
+        "bank-accounts/create/",
+        views.AccountCreateView.as_view(),
+        name="account_create",
+    ),
+    path(
+        "bank-accounts/<int:pk>/edit/",
+        views.AccountUpdateView.as_view(),
+        name="account_update",
+    ),
+    path(
+        "bank-accounts/<int:pk>/delete/",
+        views.AccountDeleteView.as_view(),
+        name="account_delete",
+    ),
     path("expenses/", views.ExpenseListView.as_view(), name="expense_list"),
     path("expenses/create/", views.ExpenseCreateView.as_view(), name="expense_create"),
     path(

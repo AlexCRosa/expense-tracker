@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}Accounts - Talon Expense Tracker{% endblock title %}
+
+{% block content %}
+<h2>Accounts</h2>
+<a href="{% url 'core:account_create' %}" class="btn btn-primary mb-3">+ Add Account</a>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for account in accounts %}
+        <tr>
+            <td>{{ account.name }}</td>
+            <td>
+                <a href="{% url 'core:account_update' account.pk %}" class="btn btn-warning btn-sm">Edit</a>
+                <a href="{% url 'core:account_delete' account.pk %}" class="btn btn-danger btn-sm">Delete</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="2">No accounts found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

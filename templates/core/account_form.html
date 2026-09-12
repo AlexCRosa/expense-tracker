@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}Edit Account{% else %}Create Account{% endif %} - Talon Expense Tracker{% endblock title %}
+
+{% block content %}
+<h2>{% if object %}Edit Account{% else %}Create Account{% endif %}</h2>
+<form method="post">
+    {% csrf_token %}
+    {% for error in form.non_field_errors %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endfor %}
+    <div class="mb-3">
+        <label for="id_name">Name:</label>
+        {{ form.name }}
+        {% for error in form.name.errors %}
+        <div class="text-danger">{{ error }}</div>
+        {% endfor %}
+    </div>
+    <button type="submit" class="btn btn-primary mt-3">{% if object %}Save Changes{% else %}Create Account{% endif %}</button>
+    <a href="{% url 'core:account_list' %}" class="btn btn-secondary mt-3">Cancel</a>
+</form>
+{% endblock %}

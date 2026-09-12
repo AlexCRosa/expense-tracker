@@ -6,7 +6,15 @@ from django.db.utils import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
 
-from core.models import Budget, Category, Expense, Income, SavingsGoal, User
+from core.models import (
+    Account,
+    Budget,
+    Category,
+    Expense,
+    Income,
+    SavingsGoal,
+    User,
+)
 
 
 class DashboardViewTests(TestCase):
@@ -235,6 +243,40 @@ class SavingsGoalContributionTest(TestCase):
         SavingsGoal.objects.all().delete()
         response = self.client.get(reverse("core:expense_create"))
         self.assertNotContains(response, 'id="savings_goal_row"')
+
+
+class AccountTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="testuser", email="testuser@example.com", password="password123"
+        )
+        self.client.login(username="testuser", password="password123")
+
+    def test_create_account(self):
+        response = self.client.post(
+            reverse("core:account_create"), {"name": "BoA Checking"}
+        )
+
+        self.assertRedirects(response, reverse("core:account_list"))
+        self.assertTrue(Account.objects.filter(name="BoA Checking").exists())
+
+    def test_account_names_are_unique(self):
+        Account.objects.create(name="BoA Checking")
+        response = self.client.post(
+            reverse("core:account_create"), {"name": "BoA Checking"}
+        )
+
+        self.assertContains(response, "Account with this Name already exists.")
+        self.assertEqual(Account.objects.count(), 1)
+
+    def test_list_and_delete_account(self):
+        account = Account.objects.create(name="Capital One")
+        response = self.client.get(reverse("core:account_list"))
+        self.assertContains(response, "Capital One")
+
+        response = self.client.post(reverse("core:account_delete", args=[account.pk]))
+        self.assertRedirects(response, reverse("core:account_list"))
+        self.assertFalse(Account.objects.filter(pk=account.pk).exists())
 
 
 class UserManagersTest(TestCase):

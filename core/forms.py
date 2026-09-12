@@ -1,6 +1,6 @@
 from django import forms
 
-from .models import Budget, Category, Expense, Income, SavingsGoal
+from .models import Account, Budget, Category, Expense, Income, SavingsGoal
 
 
 class ExpenseForm(forms.ModelForm):
@@ -74,3 +74,10 @@ class CategoryForm(forms.ModelForm):
             "name": forms.TextInput(attrs={"class": "form-control"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
         }
+
+
+class AccountForm(forms.ModelForm):
+    class Meta:
+        model = Account
+        fields = ["name"]
+        widgets = {"name": forms.TextInput(attrs={"class": "form-control"})}

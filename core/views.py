@@ -16,13 +16,14 @@ from django.views.generic import (
 )
 
 from .forms import (
+    AccountForm,
     BudgetForm,
     CategoryForm,
     ExpenseForm,
     IncomeForm,
     SavingsGoalForm,
 )
-from .models import Budget, Category, Expense, Income, SavingsGoal, User
+from .models import Account, Budget, Category, Expense, Income, SavingsGoal, User
 
 
 class PersonFilterMixin:
@@ -156,6 +157,33 @@ class CategoryDeleteView(LoginRequiredMixin, DeleteView):
     model = Category
     template_name = "core/category_confirm_delete.html"
     success_url = reverse_lazy("core:category_list")
+
+
+# Account Views
+class AccountListView(LoginRequiredMixin, ListView):
+    model = Account
+    template_name = "core/account_list.html"
+    context_object_name = "accounts"
+
+
+class AccountCreateView(LoginRequiredMixin, CreateView):
+    model = Account
+    form_class = AccountForm
+    template_name = "core/account_form.html"
+    success_url = reverse_lazy("core:account_list")
+
+
+class AccountUpdateView(LoginRequiredMixin, UpdateView):
+    model = Account
+    form_class = AccountForm
+    template_name = "core/account_form.html"
+    success_url = reverse_lazy("core:account_list")
+
+
+class AccountDeleteView(LoginRequiredMixin, DeleteView):
+    model = Account
+    template_name = "core/account_confirm_delete.html"
+    success_url = reverse_lazy("core:account_list")
 
 
 # Expense Views
