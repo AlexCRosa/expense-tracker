@@ -88,6 +88,12 @@ class Transaction(models.Model):
             self.amount = -abs(self.amount)
         super().save(*args, **kwargs)
 
+    def mark_reviewed(self, user):
+        """Records who confirmed the transaction and when, without saving it."""
+        self.reviewed = True
+        self.reviewed_at = timezone.now()
+        self.reviewed_by = user
+
     @property
     def absolute_amount(self):
         """The amount without its sign, for pages that already say which way it went."""

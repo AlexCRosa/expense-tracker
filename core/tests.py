@@ -541,6 +541,49 @@ class TypeCrossingTest(TestCase):
         self.assertTrue(Transaction.objects.filter(pk=self.income.pk).exists())
 
 
+class ManualEntryReviewTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="alex", first_name="Alex", email="a@b.c", password="pw123456"
+        )
+        self.account = Account.objects.create(name="Checking")
+        self.client.login(username="alex", password="pw123456")
+
+    def test_typed_expense_is_reviewed_and_not_queued(self):
+        self.client.post(
+            reverse("core:expense_create"),
+            {
+                "account": self.account.pk,
+                "type": "expense",
+                "amount": 12,
+                "date": "2026-09-04",
+                "description": "typed by hand",
+            },
+        )
+
+        expense = Transaction.objects.get(description="typed by hand")
+        self.assertTrue(expense.reviewed)
+        self.assertEqual(expense.reviewed_by, self.user)
+        self.assertIsNotNone(expense.reviewed_at)
+        response = self.client.get(reverse("core:review_list"))
+        self.assertNotContains(response, "typed by hand")
+
+    def test_typed_income_is_reviewed(self):
+        self.client.post(
+            reverse("core:income_create"),
+            {
+                "account": self.account.pk,
+                "amount": 3000,
+                "date": "2026-09-01",
+                "description": "salary typed by hand",
+            },
+        )
+
+        income = Transaction.objects.get(description="salary typed by hand")
+        self.assertTrue(income.reviewed)
+        self.assertEqual(income.reviewed_by, self.user)
+
+
 class InternalTransferTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(

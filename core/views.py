@@ -225,8 +225,9 @@ class ExpenseCreateView(LoginRequiredMixin, CreateView):
     success_url = reverse_lazy("core:expense_list")
 
     def form_valid(self, form):
-        # Set the user of the expense to the logged-in user
         form.instance.user = self.request.user
+        # A transaction typed in by hand has nothing left to review
+        form.instance.mark_reviewed(self.request.user)
         return super().form_valid(form)
 
     def get_initial(self):
@@ -275,6 +276,8 @@ class IncomeCreateView(LoginRequiredMixin, CreateView):
 
     def form_valid(self, form):
         form.instance.user = self.request.user
+        # A transaction typed in by hand has nothing left to review
+        form.instance.mark_reviewed(self.request.user)
         return super().form_valid(form)
 
     def get_initial(self):
@@ -344,9 +347,7 @@ class ReviewUpdateView(LoginRequiredMixin, UpdateView):
     http_method_names = ["post"]
 
     def form_valid(self, form):
-        form.instance.reviewed = True
-        form.instance.reviewed_at = timezone.now()
-        form.instance.reviewed_by = self.request.user
+        form.instance.mark_reviewed(self.request.user)
         return super().form_valid(form)
 
     def form_invalid(self, form):
