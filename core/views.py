@@ -138,7 +138,7 @@ class CategoryListView(LoginRequiredMixin, ListView):
         default_categories = Category.objects.filter(user=None).exclude(
             name__in=user_categories.values_list("name", flat=True)
         )
-        return user_categories | default_categories
+        return (user_categories | default_categories).select_related("user")
 
 
 class CategoryCreateView(LoginRequiredMixin, CreateView):
@@ -210,7 +210,7 @@ class ExpenseListView(LoginRequiredMixin, ListView):
     template_name = "core/expense_list.html"
 
     def get_queryset(self):
-        return Expense.objects.filter(user=self.request.user)
+        return Expense.objects.filter(user=self.request.user).select_related("category")
 
 
 class ExpenseCreateView(LoginRequiredMixin, CreateView):
@@ -287,7 +287,7 @@ class BudgetListView(LoginRequiredMixin, ListView):
     template_name = "core/budget_list.html"
 
     def get_queryset(self):
-        return Budget.objects.filter(user=self.request.user)
+        return Budget.objects.filter(user=self.request.user).select_related("category")
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
