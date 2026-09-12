@@ -22,7 +22,25 @@ from .forms import (
     IncomeForm,
     SavingsGoalForm,
 )
-from .models import Budget, Category, Expense, Income, SavingsGoal
+from .models import Budget, Category, Expense, Income, SavingsGoal, User
+
+
+class PersonFilterMixin:
+    """Narrows a queryset to one person when the person query param is set."""
+
+    def get_selected_person(self):
+        person = self.request.GET.get("person", "")
+        return person if person.isdigit() else ""
+
+    def filter_by_person(self, queryset):
+        person = self.get_selected_person()
+        return queryset.filter(user_id=person) if person else queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["people"] = User.objects.order_by("username")
+        context["selected_person"] = self.get_selected_person()
+        return context
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
@@ -151,12 +169,12 @@ class CategoryDeleteView(LoginRequiredMixin, DeleteView):
 
 
 # Expense Views
-class ExpenseListView(LoginRequiredMixin, ListView):
+class ExpenseListView(LoginRequiredMixin, PersonFilterMixin, ListView):
     model = Expense
     template_name = "core/expense_list.html"
 
     def get_queryset(self):
-        return Expense.objects.filter(user=self.request.user).select_related("category")
+        return self.filter_by_person(Expense.objects.select_related("category"))
 
 
 class ExpenseCreateView(LoginRequiredMixin, CreateView):
@@ -190,12 +208,12 @@ class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
 
 
 # Income Views
-class IncomeListView(LoginRequiredMixin, ListView):
+class IncomeListView(LoginRequiredMixin, PersonFilterMixin, ListView):
     model = Income
     template_name = "core/income_list.html"
 
     def get_queryset(self):
-        return Income.objects.filter(user=self.request.user)
+        return self.filter_by_person(Income.objects.all())
 
 
 class IncomeCreateView(LoginRequiredMixin, CreateView):
@@ -228,22 +246,21 @@ class IncomeDeleteView(LoginRequiredMixin, DeleteView):
 
 
 # Budget Views
-class BudgetListView(LoginRequiredMixin, ListView):
+class BudgetListView(LoginRequiredMixin, PersonFilterMixin, ListView):
     model = Budget
     template_name = "core/budget_list.html"
     context_object_name = "budgets"
 
     def get_queryset(self):
         # Sum each budget's own expenses within its own date range
-        return (
-            Budget.objects.filter(user=self.request.user)
-            .select_related("category")
+        return self.filter_by_person(
+            Budget.objects.select_related("category", "user")
             .annotate(
                 value_spent=Coalesce(
                     Sum(
                         "category__expenses__amount",
                         filter=Q(
-                            category__expenses__user=self.request.user,
+                            category__expenses__user=F("user"),
                             category__expenses__date__gte=F("start_date"),
                             category__expenses__date__lte=F("end_date"),
                         ),
@@ -296,13 +313,13 @@ class BudgetDeleteView(LoginRequiredMixin, DeleteView):
 
 
 # SavingsGoal Views
-class SavingsGoalListView(LoginRequiredMixin, ListView):
+class SavingsGoalListView(LoginRequiredMixin, PersonFilterMixin, ListView):
     model = SavingsGoal
     template_name = "core/savings_goal_list.html"
     context_object_name = "savings_goals"
 
     def get_queryset(self):
-        return SavingsGoal.objects.filter(user=self.request.user)
+        return self.filter_by_person(SavingsGoal.objects.select_related("user"))
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

@@ -5,10 +5,15 @@
 {% block content %}
 <h2>Budgets</h2>
 <a href="{% url 'core:budget_create' %}" class="btn btn-primary mb-3">+ Add Budget</a>
+<form method="get" class="d-flex align-items-center mb-3">
+    <div class="me-3">{% include "core/_person_field.html" %}</div>
+    <button type="submit" class="btn btn-primary">Filter</button>
+</form>
 <table class="table">
     <thead>
         <tr>
             <th>Category</th>
+            <th>Owner</th>
             <th>Budget Defined</th>
             <th>Value Spent</th>
             <th>Budget Available</th>
@@ -21,6 +26,7 @@
         {% for budget in budgets %}
         <tr>
             <td>{{ budget.category }}</td>
+            <td>{{ budget.user }}</td>
             <td>{{ budget.amount|floatformat:2 }}</td>
             <td>{{ budget.value_spent|floatformat:2 }}</td>
             <td>{{ budget.budget_available|floatformat:2 }}</td>
@@ -33,7 +39,7 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="7">No budgets found.</td>
+            <td colspan="8">No budgets found.</td>
         </tr>
         {% endfor %}
     </tbody>

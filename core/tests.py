@@ -311,7 +311,7 @@ class IncomeModelTest(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertFalse(Income.objects.filter(pk=self.income2.pk).exists())
 
-    def test_income_list_shows_only_user_incomes(self):
+    def test_income_list_shows_every_income(self):
         other_user = User.objects.create_user(
             username="otheruser", email="otheruser@example.com", password="password123"
         )
@@ -326,7 +326,24 @@ class IncomeModelTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Salary")
         self.assertContains(response, "Freelance")
-        self.assertNotContains(response, "Other User Income")
+        self.assertContains(response, "Other User Income")
+
+    def test_filter_income_list_by_person(self):
+        other_user = User.objects.create_user(
+            username="otheruser", email="otheruser@example.com", password="password123"
+        )
+        Income.objects.create(
+            user=other_user,
+            amount=500.00,
+            description="Other User Income",
+            date="2024-11-10",
+        )
+        response = self.client.get(
+            reverse("core:income_list"), {"person": other_user.pk}
+        )
+
+        self.assertContains(response, "Other User Income")
+        self.assertNotContains(response, "Salary")
 
 
 class CategoryModelTest(TestCase):
@@ -470,20 +487,21 @@ class BudgetModelTest(TestCase):
         self.assertContains(response, "50.00")  # Value Spent for Groceries
         self.assertContains(response, "0.00")  # Budget Available for Groceries
 
-    def test_budget_visible_to_owner_only(self):
-        self.client.login(username="testuser", password="password123")
+    def test_budget_list_shows_every_budget_with_its_owner(self):
+        self.client.login(username="otheruser", password="password456")
         response = self.client.get(reverse("core:budget_list"))
 
         self.assertContains(response, "Entertainment")
         self.assertContains(response, "Groceries")
+        self.assertContains(response, "testuser")
 
-        self.client.logout()
-
-        self.client.login(username="otheruser", password="password456")
-        response = self.client.get(reverse("core:budget_list"))
+    def test_filter_budget_list_by_person(self):
+        self.client.login(username="testuser", password="password123")
+        response = self.client.get(
+            reverse("core:budget_list"), {"person": self.other_user.pk}
+        )
 
         self.assertNotContains(response, "Entertainment")
-        self.assertNotContains(response, "Groceries")
 
     def test_create_budget(self):
         self.client.login(username="testuser", password="password123")
@@ -593,14 +611,23 @@ class SavingsGoalModelTest(TestCase):
         self.assertEqual(self.goal1.target_amount - self.goal1.current_amount, 900.00)
         self.assertEqual(self.goal2.target_amount - self.goal2.current_amount, 100.00)
 
-    def test_filter_savings_goals_by_user(self):
+    def test_savings_goal_list_shows_every_goal(self):
         self.client.login(username="testuser", password="password123")
         response = self.client.get(reverse("core:savings_goal_list"))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.goal1.goal_name)
         self.assertContains(response, self.goal2.goal_name)
-        self.assertNotContains(response, self.other_user_goal.goal_name)
+        self.assertContains(response, self.other_user_goal.goal_name)
+
+    def test_filter_savings_goals_by_person(self):
+        self.client.login(username="testuser", password="password123")
+        response = self.client.get(
+            reverse("core:savings_goal_list"), {"person": self.other_user.pk}
+        )
+
+        self.assertContains(response, self.other_user_goal.goal_name)
+        self.assertNotContains(response, self.goal1.goal_name)
 
     def test_edit_savings_goal(self):
         self.client.login(username="testuser", password="password123")
