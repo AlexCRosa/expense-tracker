@@ -4,11 +4,10 @@
 
 {% block content %}
 <h2>Incomes</h2>
-<a href="{% url 'core:income_create' %}" class="btn btn-primary">+ Add Income</a>
-<form method="get" class="d-flex align-items-center mb-3">
-    <div class="me-3">{% include "core/_person_field.html" %}</div>
-    <button type="submit" class="btn btn-primary">Filter</button>
-</form>
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'core:income_create' %}" class="btn btn-primary">+ Add Income</a>
+    {% include "core/_person_filter.html" %}
+</div>
 <table class="table mt-3">
     <thead>
         <tr>

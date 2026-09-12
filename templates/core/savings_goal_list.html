@@ -4,11 +4,10 @@
 
 {% block content %}
 <h2>Savings Goals</h2>
-<a href="{% url 'core:savings_goal_create' %}" class="btn btn-primary mb-3">+ Add Savings Goal</a>
-<form method="get" class="d-flex align-items-center mb-3">
-    <div class="me-3">{% include "core/_person_field.html" %}</div>
-    <button type="submit" class="btn btn-primary">Filter</button>
-</form>
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'core:savings_goal_create' %}" class="btn btn-primary">+ Add Savings Goal</a>
+    {% include "core/_person_filter.html" %}
+</div>
 <table class="table">
     <thead>
         <tr>
@@ -25,7 +24,7 @@
         {% for goal in savings_goals %}
         <tr>
             <td>{{ goal.goal_name }}</td>
-            <td>{{ goal.user }}</td>
+            <td>{{ goal.user.first_name }}</td>
             <td>{{ goal.target_amount }}</td>
             <td>{{ goal.current_amount }}</td>
             <td>{{ goal.amount_to_goal }}</td>

@@ -4,11 +4,10 @@
 
 {% block content %}
 <h2>Budgets</h2>
-<a href="{% url 'core:budget_create' %}" class="btn btn-primary mb-3">+ Add Budget</a>
-<form method="get" class="d-flex align-items-center mb-3">
-    <div class="me-3">{% include "core/_person_field.html" %}</div>
-    <button type="submit" class="btn btn-primary">Filter</button>
-</form>
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'core:budget_create' %}" class="btn btn-primary">+ Add Budget</a>
+    {% include "core/_person_filter.html" %}
+</div>
 <table class="table">
     <thead>
         <tr>
@@ -26,7 +25,7 @@
         {% for budget in budgets %}
         <tr>
             <td>{{ budget.category }}</td>
-            <td>{{ budget.user }}</td>
+            <td>{{ budget.user.first_name }}</td>
             <td>{{ budget.amount|floatformat:2 }}</td>
             <td>{{ budget.value_spent|floatformat:2 }}</td>
             <td>{{ budget.budget_available|floatformat:2 }}</td>
