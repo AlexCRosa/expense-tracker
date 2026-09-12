@@ -1,29 +1,43 @@
 {% extends "base.html" %}
 
-{% block title %}Create Budget - Talon Expense Tracker{% endblock title %}
+{% block title %}{% if object %}Edit Budget{% else %}Add Budget{% endif %} - Talon Expense Tracker{% endblock title %}
 
 {% block content %}
 <h2>{% if object %}Edit{% else %}Add{% endif %} Budget</h2>
 <form method="post">
     {% csrf_token %}
+    {% for error in form.non_field_errors %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endfor %}
     <div class="mb-3">
         <label for="id_category">Category:</label>
         {{ form.category }}
+        {% for error in form.category.errors %}
+        <div class="text-danger">{{ error }}</div>
+        {% endfor %}
     </div>
     <div class="mb-3">
         <label for="id_amount">Amount:</label>
         {{ form.amount }}
+        {% for error in form.amount.errors %}
+        <div class="text-danger">{{ error }}</div>
+        {% endfor %}
     </div>
     <div class="mb-3">
         <label for="id_start_date">Start Date:</label>
         <input type="date" name="start_date" id="id_start_date" value="{{ form.start_date.value|date:'Y-m-d' }}">
+        {% for error in form.start_date.errors %}
+        <div class="text-danger">{{ error }}</div>
+        {% endfor %}
     </div>
     <div class="mb-3">
         <label for="id_end_date">End Date:</label>
         <input type="date" name="end_date" id="id_end_date" value="{{ form.end_date.value|date:'Y-m-d' }}">
+        {% for error in form.end_date.errors %}
+        <div class="text-danger">{{ error }}</div>
+        {% endfor %}
     </div>
     <button type="submit" class="btn btn-primary mt-3">{% if object %}Update{% else %}Create Budget{% endif %}</button>
     <a href="{% url 'core:budget_list' %}" class="btn btn-secondary mt-3">Cancel</a>
 </form>
-
 {% endblock %}
