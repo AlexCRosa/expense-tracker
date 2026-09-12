@@ -71,12 +71,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         # Budgets Overview for the selected month/year
         budgets = Budget.objects.filter(user=user).annotate(
             budget_defined=F("amount"),
-            value_spent=Sum(
-                "category__expenses__amount",
-                filter=Q(
-                    category__expenses__date__month=month,
-                    category__expenses__date__year=year,
+            value_spent=Coalesce(
+                Sum(
+                    "category__expenses__amount",
+                    filter=Q(
+                        category__expenses__date__month=month,
+                        category__expenses__date__year=year,
+                    ),
                 ),
+                Value(0, output_field=DecimalField()),
             ),
             remaining_budget=ExpressionWrapper(
                 F("amount")
