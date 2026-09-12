@@ -52,7 +52,7 @@
             <td>{{ transaction.user.first_name }}</td>
             <td>
                 {% if transaction.reviewed %}
-                {{ transaction.reviewed_by.first_name }} on {{ transaction.reviewed_at|date:"M d, Y" }}
+                {% if transaction.reviewed_by and transaction.reviewed_at %}{{ transaction.reviewed_by.first_name }} on {{ transaction.reviewed_at|date:"M d, Y" }}{% else %}Reviewed{% endif %}
                 {% else %}
                 <span class="text-danger">Not yet</span>
                 {% endif %}
