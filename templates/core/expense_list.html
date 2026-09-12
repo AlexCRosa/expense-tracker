@@ -22,9 +22,9 @@
     <tbody>
         {% for expense in object_list %}
         <tr>
-            <td>${{ expense.amount }}</td>
+            <td>${{ expense.amount|floatformat:2 }}</td>
             <td>{{ expense.category }}</td>
-            <td>{{ expense.description }}</td>
+            <td>{{ expense.description|default_if_none:"" }}</td>
             <td>{{ expense.date|date:"M d, Y" }}</td>
             <td>
                 <a href="{% url 'core:expense_update' expense.pk %}" class="btn btn-warning btn-sm">Edit</a>

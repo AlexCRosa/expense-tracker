@@ -20,8 +20,8 @@
     <tbody>
         {% for income in object_list %}
         <tr>
-            <td>{{ income.amount }}</td>
-            <td>{{ income.description }}</td>
+            <td>${{ income.amount|floatformat:2 }}</td>
+            <td>{{ income.description|default_if_none:"" }}</td>
             <td>{{ income.date }}</td>
             <td>
                 <a href="{% url 'core:income_update' income.pk %}" class="btn btn-warning btn-sm">Edit</a>

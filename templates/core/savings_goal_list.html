@@ -26,10 +26,10 @@
         <tr>
             <td>{{ goal.goal_name }}</td>
             <td>{{ goal.user.first_name }}</td>
-            <td>{{ goal.target_amount }}</td>
-            <td>{{ goal.current_amount }}</td>
-            <td>{{ goal.saved_amount }}</td>
-            <td>{{ goal.amount_to_goal }}</td>
+            <td>${{ goal.target_amount|floatformat:2 }}</td>
+            <td>${{ goal.current_amount|floatformat:2 }}</td>
+            <td>${{ goal.saved_amount|floatformat:2 }}</td>
+            <td>${{ goal.amount_to_goal|floatformat:2 }}</td>
             <td>{{ goal.deadline|date:"M. d, Y" }} ({{ goal.remaining_days }})</td>
             <td>
                 <a href="{% url 'core:savings_goal_update' goal.pk %}" class="btn btn-warning btn-sm">Edit</a>

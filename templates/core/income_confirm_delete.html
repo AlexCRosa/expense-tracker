@@ -4,8 +4,8 @@
 
 {% block content %}
 <h2>Are you sure you want to delete this income?</h2>
-<p><strong>Amount:</strong> {{ object.amount }}</p>
-<p><strong>Source of Income:</strong> {{ object.description }}</p>
+<p><strong>Amount:</strong> ${{ object.amount|floatformat:2 }}</p>
+<p><strong>Source of Income:</strong> {{ object.description|default_if_none:"" }}</p>
 <p><strong>Date of Credit:</strong> {{ object.date }}</p>
 <form method="post">
     {% csrf_token %}

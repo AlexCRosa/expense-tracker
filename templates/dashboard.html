@@ -61,7 +61,7 @@
         <h5 class="card-title">Last 3 Expenses</h5>
         <ul>
             {% for expense in last_expenses %}
-            <li>{{ expense.date|date:"M. d, Y" }}: ${{ expense.amount|floatformat:2 }} - {{ expense.category }} ({{ expense.user }})</li>
+            <li>{{ expense.date|date:"M. d, Y" }}: ${{ expense.amount|floatformat:2 }} - {{ expense.category }} ({{ expense.user.first_name }})</li>
             {% empty %}
             <p>No expenses added yet.</p>
             {% endfor %}
@@ -83,7 +83,7 @@
             <tbody>
                 {% for row in spending_by_user %}
                 <tr>
-                    <td>{{ row.user__username }}</td>
+                    <td>{{ row.user__first_name }}</td>
                     <td>${{ row.total|floatformat:2 }}</td>
                 </tr>
                 {% empty %}

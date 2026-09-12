@@ -5,7 +5,7 @@
 {% block content %}
 <h2>Confirm Delete</h2>
 <p>Are you sure you want to delete the savings goal: <strong>{{ object.goal_name }}</strong>?</p>
-<p>Target Amount: <strong>${{ object.target_amount }}</strong></p>
+<p>Target Amount: <strong>${{ object.target_amount|floatformat:2 }}</strong></p>
 <form method="post">
     {% csrf_token %}
     <button type="submit" class="btn btn-danger">Delete</button>

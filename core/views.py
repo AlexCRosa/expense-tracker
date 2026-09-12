@@ -78,7 +78,7 @@ class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
 
         # Spending for the selected month grouped by the person who added it
         context["spending_by_user"] = (
-            expenses.values("user__username")
+            expenses.values("user__first_name")
             .annotate(total=Sum("amount"))
             .order_by("-total")
         )

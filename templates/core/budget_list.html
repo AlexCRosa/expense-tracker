@@ -26,9 +26,9 @@
         <tr>
             <td>{{ budget.category }}</td>
             <td>{{ budget.user.first_name }}</td>
-            <td>{{ budget.amount|floatformat:2 }}</td>
-            <td>{{ budget.value_spent|floatformat:2 }}</td>
-            <td>{{ budget.budget_available|floatformat:2 }}</td>
+            <td>${{ budget.amount|floatformat:2 }}</td>
+            <td>${{ budget.value_spent|floatformat:2 }}</td>
+            <td>${{ budget.budget_available|floatformat:2 }}</td>
             <td>{{ budget.start_date }}</td>
             <td>{{ budget.end_date }}</td>
             <td>
