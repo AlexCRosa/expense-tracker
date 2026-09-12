@@ -60,11 +60,44 @@
         <h5 class="card-title">Last 3 Expenses</h5>
         <ul>
             {% for expense in last_expenses %}
-            <li>{{ expense.date|date:"M. d, Y" }}: ${{ expense.amount|floatformat:2 }} - {{ expense.category }}</li>
+            <li>{{ expense.date|date:"M. d, Y" }}: ${{ expense.amount|floatformat:2 }} - {{ expense.category }} ({{ expense.user }})</li>
             {% empty %}
             <p>No expenses added yet.</p>
             {% endfor %}
         </ul>
+    </div>
+</div>
+
+<!-- Spending by Person -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Spending This Month</h5>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Person</th>
+                    <th>Total Spent</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in spending_by_user %}
+                <tr>
+                    <td>{{ row.user__username }}</td>
+                    <td>${{ row.total|floatformat:2 }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="2">No spending this month.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th>Total</th>
+                    <th>${{ household_spending|floatformat:2 }}</th>
+                </tr>
+            </tfoot>
+        </table>
     </div>
 </div>
 

@@ -52,10 +52,27 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["selected_month"] = month
         context["selected_year"] = year
 
-        # Other context data...
-        context["last_expenses"] = Expense.objects.filter(
-            user=user, date__month=month, date__year=year
-        ).order_by("-date")[:3]
+        # Last expenses across everyone, so the name on each line means something
+        context["last_expenses"] = (
+            Expense.objects.filter(date__month=month, date__year=year)
+            .select_related("user", "category")
+            .order_by("-date")[:3]
+        )
+
+        # Spending for the selected month grouped by the person who added it
+        context["spending_by_user"] = (
+            Expense.objects.filter(date__year=year, date__month=month)
+            .values("user__username")
+            .annotate(total=Sum("amount"))
+            .order_by("-total")
+        )
+
+        context["household_spending"] = (
+            Expense.objects.filter(date__year=year, date__month=month).aggregate(
+                Sum("amount")
+            )["amount__sum"]
+            or 0
+        )
 
         # Savings Goals (no filtering by month/year)
         savings_goals = SavingsGoal.objects.filter(user=user)
