@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block title %}Incomes - Talon Expense Tracker{% endblock title %}
 
@@ -20,7 +21,7 @@
     <tbody>
         {% for income in object_list %}
         <tr>
-            <td>${{ income.amount|floatformat:2 }}</td>
+            <td>${{ income.amount|floatformat:2|intcomma }}</td>
             <td>{{ income.description|default_if_none:"" }}</td>
             <td>{{ income.date }}</td>
             <td>

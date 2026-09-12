@@ -96,7 +96,7 @@ class DashboardViewTests(TestCase):
     def test_savings_goals_display(self):
         response = self.client.get(reverse("core:dashboard"))
         self.assertContains(response, "Vacation")
-        self.assertContains(response, "1000.00")
+        self.assertContains(response, "1,000.00")
         self.assertContains(response, "200.00")
 
     def test_income_summary(self):
@@ -118,9 +118,9 @@ class DashboardViewTests(TestCase):
 
         # Verify the balance calculation
         if expected_balance >= 0:
-            self.assertContains(response, f"${expected_balance:.2f}", html=True)
+            self.assertContains(response, f"${expected_balance:,.2f}", html=True)
         else:
-            self.assertContains(response, f"$-{abs(expected_balance):.2f}", html=True)
+            self.assertContains(response, f"$-{abs(expected_balance):,.2f}", html=True)
 
     def test_filter_by_month_and_year(self):
         response = self.client.get(reverse("core:dashboard") + "?month=11&year=2024")
