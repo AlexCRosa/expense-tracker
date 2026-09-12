@@ -24,7 +24,7 @@
         {% endfor %}
     </div>
     <div class="mb-3">
-        <label for="id_current_amount">Amount Saved:</label>
+        <label for="id_current_amount">Starting Save:</label>
         {{ form.current_amount }}
         {% for error in form.current_amount.errors %}
         <div class="text-danger">{{ error }}</div>

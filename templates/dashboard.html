@@ -112,7 +112,7 @@
                 <tr>
                     <th>Goal Name</th>
                     <th>Target Amount</th>
-                    <th>Current Amount</th>
+                    <th>Saved</th>
                     <th>Percentage Achieved</th>
                     <th>Deadline</th>
                 </tr>
@@ -122,7 +122,7 @@
                 <tr>
                     <td>{{ goal.goal_name }}</td>
                     <td>${{ goal.target_amount|floatformat:2 }}</td>
-                    <td>${{ goal.current_amount|floatformat:2 }}</td>
+                    <td>${{ goal.saved_amount|floatformat:2 }}</td>
                     <td>{{ goal.percentage_achieved|floatformat:2 }}%</td>
                     <td>
                         {{ goal.deadline|date:"M. d, Y" }}

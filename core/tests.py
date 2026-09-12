@@ -150,6 +150,93 @@ class DashboardViewTests(TestCase):
         self.assertContains(response, "No budgets set yet.")
 
 
+class SavingsGoalContributionTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="testuser", email="testuser@example.com", password="password123"
+        )
+        self.other_user = User.objects.create_user(
+            username="otheruser", email="otheruser@example.com", password="password456"
+        )
+        self.savings = Category.objects.create(name="Savings")
+        self.goal = SavingsGoal.objects.create(
+            user=self.user,
+            goal_name="Vacation",
+            target_amount=1000,
+            current_amount=100,
+            created_at=date(2026, 1, 1),
+            deadline=date(2026, 12, 31),
+        )
+        self.client.login(username="testuser", password="password123")
+
+    def saved(self):
+        return SavingsGoal.objects.with_saved_amount().get(pk=self.goal.pk).saved_amount
+
+    def test_starting_save_counts_on_its_own(self):
+        self.assertEqual(self.saved(), 100)
+
+    def test_savings_inside_the_window_counts(self):
+        Expense.objects.create(
+            user=self.user,
+            amount=250,
+            category=self.savings,
+            savings_goal=self.goal,
+            date=date(2026, 6, 1),
+        )
+        self.assertEqual(self.saved(), 350)
+
+    def test_savings_outside_the_window_does_not_count(self):
+        Expense.objects.create(
+            user=self.user,
+            amount=250,
+            category=self.savings,
+            savings_goal=self.goal,
+            date=date(2025, 12, 31),
+        )
+        self.assertEqual(self.saved(), 100)
+
+    def test_savings_with_no_goal_does_not_count(self):
+        Expense.objects.create(
+            user=self.user,
+            amount=250,
+            category=self.savings,
+            date=date(2026, 6, 1),
+        )
+        self.assertEqual(self.saved(), 100)
+
+    def test_anyone_can_feed_a_goal(self):
+        Expense.objects.create(
+            user=self.other_user,
+            amount=400,
+            category=self.savings,
+            savings_goal=self.goal,
+            date=date(2026, 6, 1),
+        )
+        self.assertEqual(self.saved(), 500)
+
+    def test_list_shows_starting_save_and_saved(self):
+        Expense.objects.create(
+            user=self.user,
+            amount=250,
+            category=self.savings,
+            savings_goal=self.goal,
+            date=date(2026, 6, 1),
+        )
+        response = self.client.get(reverse("core:savings_goal_list"))
+
+        self.assertContains(response, "Starting Save")
+        self.assertContains(response, "350")
+        self.assertContains(response, "650")  # amount still to go
+
+    def test_goal_dropdown_hidden_until_a_goal_exists(self):
+        response = self.client.get(reverse("core:expense_create"))
+        self.assertContains(response, 'id="savings_goal_row"')
+
+        SavingsGoal.objects.all().delete()
+        response = self.client.get(reverse("core:expense_create"))
+        self.assertNotContains(response, 'id="savings_goal_row"')
+
+
 class UserManagersTest(TestCase):
     def test_create_user(self):
         User = get_user_model()

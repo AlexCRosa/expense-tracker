@@ -1,5 +1,7 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import F, Q, Sum, Value
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 
@@ -29,6 +31,13 @@ class Expense(models.Model):
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     category = models.ForeignKey(
         Category, on_delete=models.SET_NULL, null=True, related_name="expenses"
+    )
+    savings_goal = models.ForeignKey(
+        "SavingsGoal",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="contributions",
     )
     description = models.TextField(blank=True, null=True)
     date = models.DateField(default=timezone.now)
@@ -60,6 +69,24 @@ class Budget(models.Model):
         return f"{self.category} budget: {self.amount}"
 
 
+class SavingsGoalQuerySet(models.QuerySet):
+    def with_saved_amount(self):
+        """Adds the starting amount to the savings filed against the goal in its window."""
+        return self.annotate(
+            saved_amount=F("current_amount")
+            + Coalesce(
+                Sum(
+                    "contributions__amount",
+                    filter=Q(
+                        contributions__date__gte=F("created_at"),
+                        contributions__date__lte=F("deadline"),
+                    ),
+                ),
+                Value(0, output_field=models.DecimalField()),
+            )
+        ).annotate(amount_to_goal=F("target_amount") - F("saved_amount"))
+
+
 class SavingsGoal(models.Model):
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="savings_goals"
@@ -67,7 +94,10 @@ class SavingsGoal(models.Model):
     goal_name = models.CharField(max_length=200)
     target_amount = models.DecimalField(max_digits=10, decimal_places=2)
     current_amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    created_at = models.DateField(default=timezone.now)
     deadline = models.DateField()
+
+    objects = SavingsGoalQuerySet.as_manager()
 
     def __str__(self):
         return f"{self.goal_name} - {self.current_amount}/{self.target_amount}"

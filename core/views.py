@@ -85,11 +85,11 @@ class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
 
         # Savings Goals (no filtering by month/year)
         savings_goals = self.filter_by_person(
-            SavingsGoal.objects.select_related("user")
+            SavingsGoal.objects.with_saved_amount().select_related("user")
         )
         for goal in savings_goals:
             goal.percentage_achieved = (
-                (goal.current_amount / goal.target_amount) * 100
+                (goal.saved_amount / goal.target_amount) * 100
                 if goal.target_amount
                 else 0
             )
@@ -309,19 +309,17 @@ class SavingsGoalListView(LoginRequiredMixin, PersonFilterMixin, ListView):
     context_object_name = "savings_goals"
 
     def get_queryset(self):
-        return self.filter_by_person(SavingsGoal.objects.select_related("user"))
+        return self.filter_by_person(
+            SavingsGoal.objects.with_saved_amount().select_related("user")
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        savings_goals = self.get_queryset()
-        for goal in savings_goals:
-            goal.amount_to_goal = goal.target_amount - goal.current_amount
-
+        for goal in context["savings_goals"]:
             days_to_go = (goal.deadline - date.today()).days
             goal.remaining_days = (
                 f"{days_to_go} days to go" if days_to_go > 0 else "Deadline passed"
             )
-        context["savings_goals"] = savings_goals
         return context
 
 

@@ -14,7 +14,8 @@
             <th>Goal Name</th>
             <th>Owner</th>
             <th>Goal</th>
-            <th>Amount Saved</th>
+            <th>Starting Save</th>
+            <th>Saved</th>
             <th>Amount to Goal</th>
             <th>Deadline</th>
             <th>Actions</th>
@@ -27,6 +28,7 @@
             <td>{{ goal.user.first_name }}</td>
             <td>{{ goal.target_amount }}</td>
             <td>{{ goal.current_amount }}</td>
+            <td>{{ goal.saved_amount }}</td>
             <td>{{ goal.amount_to_goal }}</td>
             <td>{{ goal.deadline|date:"M. d, Y" }} ({{ goal.remaining_days }})</td>
             <td>
@@ -36,7 +38,7 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="7">No savings goals found.</td>
+            <td colspan="8">No savings goals found.</td>
         </tr>
         {% endfor %}
     </tbody>

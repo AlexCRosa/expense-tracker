@@ -6,15 +6,21 @@ from .models import Budget, Category, Expense, Income, SavingsGoal
 class ExpenseForm(forms.ModelForm):
     class Meta:
         model = Expense
-        fields = ["amount", "category", "description", "date"]
+        fields = ["amount", "category", "savings_goal", "description", "date"]
         widgets = {
             "amount": forms.NumberInput(attrs={"class": "form-control"}),
             "category": forms.Select(attrs={"class": "form-select"}),
+            "savings_goal": forms.Select(attrs={"class": "form-select"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"
             ),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        savings = Category.objects.filter(name="Savings").first()
+        self.savings_category_id = savings.pk if savings else ""
 
 
 class IncomeForm(forms.ModelForm):
