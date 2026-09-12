@@ -1,10 +1,9 @@
 import calendar
-from datetime import date
+from datetime import MAXYEAR, MINYEAR, date
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
-from django.db.models.functions import Coalesce
+from django.db.models import F, Q, Sum
 from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
 from django.utils import timezone
@@ -14,105 +13,105 @@ from django.views.generic import (
     ListView,
     TemplateView,
     UpdateView,
+    View,
 )
 
-from .models import Budget, Category, Expense, Income, SavingsGoal
+from .forms import (
+    AccountForm,
+    BudgetForm,
+    CategoryForm,
+    ExpenseForm,
+    IncomeForm,
+    ReviewForm,
+    SavingsGoalForm,
+)
+from .models import Account, Budget, Category, SavingsGoal, Transaction, User
 
 
-class DashboardView(LoginRequiredMixin, TemplateView):
-    template_name = "dashboard.html"
+class PersonFilterMixin:
+    """Narrows a queryset to one person when the person query param is set."""
+
+    def get_selected_person(self):
+        person = self.request.GET.get("person", "")
+        try:
+            person_id = int(person)
+        except (TypeError, ValueError):
+            return ""
+        return str(person_id) if person_id >= 0 else ""
+
+    def filter_by_person(self, queryset):
+        person = self.get_selected_person()
+        return queryset.filter(user_id=person) if person else queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        user = self.request.user
+        context["people"] = User.objects.order_by("username")
+        context["selected_person"] = self.get_selected_person()
+        return context
 
-        # Get the selected month from the query params, default to the current month
-        selected_month = self.request.GET.get("month")
-        selected_year = self.request.GET.get("year")
 
-        # Fallback to current month/year if none is selected
+class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
+    template_name = "dashboard.html"
+
+    def selected_number(self, param, default, lowest, highest):
+        value = self.request.GET.get(param)
+        if value and value.isdecimal() and lowest <= int(value) <= highest:
+            return int(value)
+        return default
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Fall back to the current month when the query params are absent or unusable
         today = timezone.now()
-        current_month = today.month
-        current_year = today.year
+        month = self.selected_number("month", today.month, 1, 12)
+        year = self.selected_number("year", today.year, MINYEAR, MAXYEAR)
 
-        month = int(selected_month) if selected_month else current_month
-        year = int(selected_year) if selected_year else current_year
-
-        # Add month names to the context
         context["month_choices"] = [(i, calendar.month_name[i]) for i in range(1, 13)]
-        context["current_month"] = current_month
-        context["current_year"] = current_year
         context["selected_month"] = month
         context["selected_year"] = year
 
-        # Other context data...
-        context["last_expenses"] = Expense.objects.filter(
-            user=user, date__month=month, date__year=year
-        ).order_by("-date")[:3]
+        month_transactions = self.filter_by_person(
+            Transaction.objects.filter(date__month=month, date__year=year)
+        )
+        spending = month_transactions.filter(type__in=Transaction.SPENDING_TYPES)
+
+        context["last_expenses"] = spending.select_related("user", "category").order_by(
+            "-date"
+        )[:3]
+
+        # Spending for the selected month grouped by the person who added it
+        context["spending_by_user"] = (
+            spending.values("user_id", "user__first_name", "user__username")
+            .annotate(total=-Sum("amount"))
+            .order_by("-total")
+        )
 
         # Savings Goals (no filtering by month/year)
-        savings_goals = SavingsGoal.objects.filter(user=user)
+        savings_goals = self.filter_by_person(SavingsGoal.objects.with_saved_amount())
         for goal in savings_goals:
             goal.percentage_achieved = (
-                (goal.current_amount / goal.target_amount) * 100
+                (goal.saved_amount / goal.target_amount) * 100
                 if goal.target_amount
                 else 0
             )
-            goal.days_to_deadline = (goal.deadline - timezone.now().date()).days
         context["savings_goals"] = savings_goals
 
         # Budgets Overview for the selected month/year
-        budgets = Budget.objects.filter(user=user).annotate(
-            budget_defined=F("amount"),
-            value_spent=Sum(
-                "category__expenses__amount",
-                filter=Q(
-                    category__expenses__date__month=month,
-                    category__expenses__date__year=year,
-                ),
-            ),
-            remaining_budget=ExpressionWrapper(
-                F("amount")
-                - Coalesce(
-                    Sum(
-                        "category__expenses__amount",
-                        filter=Q(
-                            category__expenses__date__month=month,
-                            category__expenses__date__year=year,
-                        ),
-                    ),
-                    Value(0),
-                ),
-                output_field=DecimalField(),
-            ),
-        )
-        context["budgets"] = budgets
+        last_day = calendar.monthrange(year, month)[1]
+        context["budgets"] = self.filter_by_person(
+            Budget.objects.select_related("category")
+        ).with_value_spent(date(year, month, 1), date(year, month, last_day))
 
-        # Total Income for the selected month/year
-        context["total_income"] = (
-            Income.objects.filter(
-                user=user, date__year=year, date__month=month
-            ).aggregate(Sum("amount"))["amount__sum"]
-            or 0
+        # Internal moves cancel between their legs, so every amount counts in the balance
+        totals = month_transactions.aggregate(
+            income=Sum("amount", filter=Q(type="income")),
+            spent=Sum("amount", filter=Q(type__in=Transaction.SPENDING_TYPES)),
+            balance=Sum("amount"),
         )
-
-        # Balance calculation
-        total_income = (
-            Income.objects.filter(
-                user=user, date__year=year, date__month=month
-            ).aggregate(Sum("amount"))["amount__sum"]
-            or 0
-        )
-
-        total_expenses = (
-            Expense.objects.filter(
-                user=user, date__year=year, date__month=month
-            ).aggregate(Sum("amount"))["amount__sum"]
-            or 0
-        )
-
-        balance = total_income - total_expenses
-        context["balance"] = balance
+        context["total_income"] = totals["income"] or 0
+        context["total_expenses"] = -(totals["spent"] or 0)
+        context["balance"] = totals["balance"] or 0
 
         return context
 
@@ -123,69 +122,19 @@ class CategoryListView(LoginRequiredMixin, ListView):
     template_name = "core/category_list.html"
     context_object_name = "categories"
 
-    def get_queryset(self):
-        user_categories = Category.objects.filter(user=self.request.user)
-        default_categories = Category.objects.filter(user=None).exclude(
-            name__in=user_categories.values_list("name", flat=True)
-        )
-        return user_categories | default_categories
-
 
 class CategoryCreateView(LoginRequiredMixin, CreateView):
     model = Category
-    fields = ["name", "description"]
+    form_class = CategoryForm
     template_name = "core/category_form.html"
-
-    def form_valid(self, form):
-        form.instance.user = self.request.user
-        if Category.objects.filter(
-            name=form.instance.name, user=self.request.user
-        ).exists():
-            messages.error(self.request, "You already have a category with this name.")
-            return self.form_invalid(form)
-        if Category.objects.filter(name=form.instance.name, user=None).exists():
-            messages.error(
-                self.request, "This name is reserved for a default category."
-            )
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy("core:category_list")
+    success_url = reverse_lazy("core:category_list")
 
 
 class CategoryUpdateView(LoginRequiredMixin, UpdateView):
     model = Category
-    fields = ["name", "description"]  # Include both fields
+    form_class = CategoryForm
     template_name = "core/category_form.html"
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        if self.object.user is None:  # Default category
-            form.fields.pop("name")  # Remove 'name' field for default categories
-        return form
-
-    def form_valid(self, form):
-        category = self.object
-        if category.user is None:  # Default category
-            # Create a user-specific copy with the updated description
-            Category.objects.create(
-                user=self.request.user,
-                name=category.name,
-                description=form.cleaned_data["description"],
-            )
-        else:
-            # Save changes for user-owned categories
-            form.save()
-        return HttpResponseRedirect(self.get_success_url())
-
-    def get_queryset(self):
-        return Category.objects.filter(
-            user=self.request.user
-        ) | Category.objects.filter(user=None)
-
-    def get_success_url(self):
-        return reverse_lazy("core:category_list")
+    success_url = reverse_lazy("core:category_list")
 
 
 class CategoryDeleteView(LoginRequiredMixin, DeleteView):
@@ -193,25 +142,92 @@ class CategoryDeleteView(LoginRequiredMixin, DeleteView):
     template_name = "core/category_confirm_delete.html"
     success_url = reverse_lazy("core:category_list")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["transactions"] = self.object.transactions.select_related(
+            "user", "account"
+        ).order_by("-date")
+        context["budgets"] = self.object.budget_set.select_related("user")
+        context["can_delete"] = not (
+            context["transactions"].exists() or context["budgets"].exists()
+        )
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.transactions.exists() or self.object.budget_set.exists():
+            messages.error(request, "This category is in use and cannot be deleted.")
+            return self.render_to_response(self.get_context_data())
+        return super().post(request, *args, **kwargs)
+
+
+# Account Views
+class AccountListView(LoginRequiredMixin, ListView):
+    model = Account
+    template_name = "core/account_list.html"
+    context_object_name = "accounts"
+
+
+class AccountCreateView(LoginRequiredMixin, CreateView):
+    model = Account
+    form_class = AccountForm
+    template_name = "core/account_form.html"
+    success_url = reverse_lazy("core:account_list")
+
+
+class AccountUpdateView(LoginRequiredMixin, UpdateView):
+    model = Account
+    form_class = AccountForm
+    template_name = "core/account_form.html"
+    success_url = reverse_lazy("core:account_list")
+
+
+class AccountDeleteView(LoginRequiredMixin, DeleteView):
+    model = Account
+    template_name = "core/account_confirm_delete.html"
+    success_url = reverse_lazy("core:account_list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["transactions"] = self.object.transactions.select_related(
+            "user", "category"
+        ).order_by("-date")
+        context["can_delete"] = not context["transactions"].exists()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        if self.object.transactions.exists():
+            messages.error(
+                request, "This account has transactions and cannot be deleted."
+            )
+            return self.render_to_response(self.get_context_data())
+        return super().post(request, *args, **kwargs)
+
 
 # Expense Views
-class ExpenseListView(LoginRequiredMixin, ListView):
-    model = Expense
+class ExpenseListView(LoginRequiredMixin, PersonFilterMixin, ListView):
+    model = Transaction
     template_name = "core/expense_list.html"
 
     def get_queryset(self):
-        return Expense.objects.filter(user=self.request.user)
+        return self.filter_by_person(
+            Transaction.objects.exclude(
+                type__in=Transaction.NOT_ON_EXPENSE_PAGE
+            ).select_related("category", "account")
+        )
 
 
 class ExpenseCreateView(LoginRequiredMixin, CreateView):
-    model = Expense
-    fields = ["amount", "category", "description", "date"]
+    model = Transaction
+    form_class = ExpenseForm
     template_name = "core/expense_form.html"
     success_url = reverse_lazy("core:expense_list")
 
     def form_valid(self, form):
-        # Set the user of the expense to the logged-in user
         form.instance.user = self.request.user
+        # A transaction typed in by hand has nothing left to review
+        form.instance.mark_reviewed(self.request.user)
         return super().form_valid(form)
 
     def get_initial(self):
@@ -221,35 +237,47 @@ class ExpenseCreateView(LoginRequiredMixin, CreateView):
 
 
 class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
-    model = Expense
-    fields = ["amount", "category", "description", "date"]
+    model = Transaction
+    form_class = ExpenseForm
     template_name = "core/expense_form.html"
     success_url = reverse_lazy("core:expense_list")
 
+    def get_queryset(self):
+        return Transaction.objects.exclude(type__in=Transaction.NOT_ON_EXPENSE_PAGE)
+
 
 class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
-    model = Expense
+    model = Transaction
     template_name = "core/expense_confirm_delete.html"
     success_url = reverse_lazy("core:expense_list")
 
+    def get_queryset(self):
+        return Transaction.objects.exclude(type__in=Transaction.NOT_ON_EXPENSE_PAGE)
+
 
 # Income Views
-class IncomeListView(LoginRequiredMixin, ListView):
-    model = Income
+class IncomeListView(LoginRequiredMixin, PersonFilterMixin, ListView):
+    model = Transaction
     template_name = "core/income_list.html"
 
     def get_queryset(self):
-        return Income.objects.filter(user=self.request.user)
+        return self.filter_by_person(
+            Transaction.objects.filter(type="income").select_related(
+                "category", "account"
+            )
+        )
 
 
 class IncomeCreateView(LoginRequiredMixin, CreateView):
-    model = Income
-    fields = ["amount", "description", "date"]
+    model = Transaction
+    form_class = IncomeForm
     template_name = "core/income_form.html"
     success_url = reverse_lazy("core:income_list")
 
     def form_valid(self, form):
         form.instance.user = self.request.user
+        # A transaction typed in by hand has nothing left to review
+        form.instance.mark_reviewed(self.request.user)
         return super().form_valid(form)
 
     def get_initial(self):
@@ -259,72 +287,110 @@ class IncomeCreateView(LoginRequiredMixin, CreateView):
 
 
 class IncomeUpdateView(LoginRequiredMixin, UpdateView):
-    model = Income
-    fields = ["amount", "description", "date"]
+    model = Transaction
+    form_class = IncomeForm
     template_name = "core/income_form.html"
     success_url = reverse_lazy("core:income_list")
 
+    def get_queryset(self):
+        return Transaction.objects.filter(type="income")
+
 
 class IncomeDeleteView(LoginRequiredMixin, DeleteView):
-    model = Income
+    model = Transaction
     template_name = "core/income_confirm_delete.html"
     success_url = reverse_lazy("core:income_list")
 
+    def get_queryset(self):
+        return Transaction.objects.filter(type="income")
 
-# Budget Views
-class BudgetListView(LoginRequiredMixin, ListView):
-    model = Budget
-    template_name = "core/budget_list.html"
+
+# Review Views
+class ReviewListView(LoginRequiredMixin, ListView):
+    model = Transaction
+    template_name = "core/review_list.html"
+    context_object_name = "transactions"
+    paginate_by = 50
 
     def get_queryset(self):
-        return Budget.objects.filter(user=self.request.user)
+        self.showing_all = self.request.GET.get("show") == "all"
+        transactions = Transaction.objects.select_related(
+            "user", "account", "category", "reviewed_by"
+        ).order_by("-date", "-id")
+        if not self.showing_all:
+            transactions = transactions.filter(reviewed=False)
+        return transactions
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        budgets = self.get_queryset()  # Get only the budgets of the current user
-        budgets_data = []
-        for budget in budgets:
-            # Sum expenses of the current user within the budget's date range
-            value_spent = budget.category.expenses.filter(
-                user=self.request.user,  # Filter by the current user
-                date__range=(budget.start_date, budget.end_date),
-            ).aggregate(
-                total=Coalesce(
-                    Sum("amount", output_field=DecimalField()),
-                    Value(0, output_field=DecimalField()),
-                )
-            )["total"]
+        transactions = context["transactions"]
 
-            budgets_data.append(
-                {
-                    "id": budget.id,
-                    "category": budget.category.name,
-                    "budget_defined": budget.amount,
-                    "value_spent": value_spent,
-                    "budget_available": budget.amount - value_spent,
-                    "start_date": budget.start_date,
-                    "end_date": budget.end_date,
-                }
-            )
-        context["budgets_data"] = budgets_data
+        # One row per transaction would otherwise query the dropdowns once each
+        accounts = [(account.pk, str(account)) for account in Account.objects.all()]
+        categories = [("", "---------")] + [
+            (category.pk, str(category)) for category in Category.objects.all()
+        ]
+        for transaction in transactions:
+            form = ReviewForm(instance=transaction)
+            form.fields["account"].choices = accounts
+            form.fields["category"].choices = categories
+            transaction.form = form
+
+        context["showing_all"] = self.showing_all
+        context["unreviewed_count"] = Transaction.objects.filter(reviewed=False).count()
         return context
+
+
+class ReviewUpdateView(LoginRequiredMixin, UpdateView):
+    model = Transaction
+    form_class = ReviewForm
+    http_method_names = ["post"]
+
+    def form_valid(self, form):
+        form.instance.mark_reviewed(self.request.user)
+        return super().form_valid(form)
+
+    def form_invalid(self, form):
+        messages.error(self.request, "That review could not be saved. Check the row.")
+        return HttpResponseRedirect(self.get_success_url())
+
+    def get_success_url(self):
+        if self.request.GET.get("show") == "all":
+            return f"{reverse_lazy('core:review_list')}?show=all"
+        return reverse_lazy("core:review_list")
+
+
+class MarkAllReviewedView(LoginRequiredMixin, View):
+    def post(self, request):
+        Transaction.objects.filter(reviewed=False).update(
+            reviewed=True, reviewed_at=timezone.now(), reviewed_by=request.user
+        )
+        return HttpResponseRedirect(reverse_lazy("core:review_list"))
+
+
+# Budget Views
+class BudgetListView(LoginRequiredMixin, PersonFilterMixin, ListView):
+    model = Budget
+    template_name = "core/budget_list.html"
+    context_object_name = "budgets"
+
+    def get_queryset(self):
+        return self.filter_by_person(
+            Budget.objects.select_related("category", "user")
+        ).with_value_spent(F("start_date"), F("end_date"))
 
 
 class BudgetCreateView(LoginRequiredMixin, CreateView):
     model = Budget
-    fields = ["category", "amount", "start_date", "end_date"]
+    form_class = BudgetForm
     template_name = "core/budget_form.html"
     success_url = reverse_lazy("core:budget_list")
 
-    def form_valid(self, form):
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # The form checks for a duplicate budget, so it needs the owner before validating
         form.instance.user = self.request.user
-        if Budget.objects.filter(
-            user=self.request.user, category=form.cleaned_data["category"]
-        ).exists():
-            messages.error(self.request, "You already have a budget for this category.")
-            return self.form_invalid(form)
-
-        return super().form_valid(form)
+        return form
 
     def get_initial(self):
         initial = super().get_initial()
@@ -339,7 +405,7 @@ class BudgetCreateView(LoginRequiredMixin, CreateView):
 
 class BudgetUpdateView(LoginRequiredMixin, UpdateView):
     model = Budget
-    fields = ["category", "amount", "start_date", "end_date"]
+    form_class = BudgetForm
     template_name = "core/budget_form.html"
     success_url = reverse_lazy("core:budget_list")
 
@@ -351,31 +417,20 @@ class BudgetDeleteView(LoginRequiredMixin, DeleteView):
 
 
 # SavingsGoal Views
-class SavingsGoalListView(LoginRequiredMixin, ListView):
+class SavingsGoalListView(LoginRequiredMixin, PersonFilterMixin, ListView):
     model = SavingsGoal
     template_name = "core/savings_goal_list.html"
     context_object_name = "savings_goals"
 
     def get_queryset(self):
-        return SavingsGoal.objects.filter(user=self.request.user)
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        savings_goals = self.get_queryset()
-        for goal in savings_goals:
-            goal.amount_to_goal = goal.target_amount - goal.current_amount
-
-            days_to_go = (goal.deadline - date.today()).days
-            goal.remaining_days = (
-                f"{days_to_go} days to go" if days_to_go > 0 else "Deadline passed"
-            )
-        context["savings_goals"] = savings_goals
-        return context
+        return self.filter_by_person(
+            SavingsGoal.objects.with_saved_amount().select_related("user")
+        )
 
 
 class SavingsGoalCreateView(LoginRequiredMixin, CreateView):
     model = SavingsGoal
-    fields = ["goal_name", "target_amount", "current_amount", "deadline"]
+    form_class = SavingsGoalForm
     template_name = "core/savings_goal_form.html"
     success_url = reverse_lazy("core:savings_goal_list")
 
@@ -386,7 +441,7 @@ class SavingsGoalCreateView(LoginRequiredMixin, CreateView):
 
 class SavingsGoalUpdateView(LoginRequiredMixin, UpdateView):
     model = SavingsGoal
-    fields = ["goal_name", "target_amount", "current_amount", "deadline"]
+    form_class = SavingsGoalForm
     template_name = "core/savings_goal_form.html"
     success_url = reverse_lazy("core:savings_goal_list")
 

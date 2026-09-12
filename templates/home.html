@@ -1,21 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Talon Expense Tracker{% endblock title %}
 {% load static %}
+
+{% block title %}Talon Expense Tracker{% endblock title %}
+
 {% block content %}
-<br>
-<br>
-    <!-- <h2>Welcome to Talon Expense Tracker</h2> -->
-    <img src="{% static 'images/talon2.png' %}" height="300" style="display: block; margin-left: auto; margin-right: auto;">
-    <p class="lead" style="text-align: center;">
-        <br>
-        <br>
-        This is a project created by the student Alex Cesar Rosa in the Python Project Development class at Wake Technical Community College.
-        The Expense Tracker project is a web application designed to help users efficiently manage their personal finances.
-        It allows users to track their expenses, set budgets, and manage their savings goals.
-        Built using Python and the Django framework, the application provides a simple and intuitive platform for users to log their income and expenses,
-        categorize transactions, set budgets, and track savings goals.
-        <br>
-        <br>
-        <a href="{% url 'accounts:signup' %}">Sign Up</a> or <a href="{% url 'accounts:login' %}">Log In</a>
+<div class="text-center py-5">
+    <img src="{% static 'images/talon2.png' %}" alt="Talon Expense Tracker" height="300" class="mb-4">
+    <h1>Talon Expense Tracker</h1>
+    <p class="lead mx-auto mt-3" style="max-width: 40rem;">
+        Track what you spend, set budgets by category, and watch your savings goals move.
+        Log expenses and income, see your monthly balance at a glance, and keep it all on
+        your own machine.
     </p>
+    <div class="mt-4">
+        <a href="{% url 'accounts:login' %}" class="btn btn-primary btn-lg">Log In</a>
+    </div>
+</div>
 {% endblock %}

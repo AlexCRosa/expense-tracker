@@ -1,0 +1,9 @@
+<label for="person" class="form-label d-inline me-2">Person</label>
+<select id="person" name="person" class="form-select d-inline" style="width: auto;">
+    <option value="">Everyone</option>
+    {% for person in people %}
+    <option value="{{ person.pk }}" {% if selected_person == person.pk|stringformat:"s" %}selected{% endif %}>
+        {{ person.username }}
+    </option>
+    {% endfor %}
+</select>

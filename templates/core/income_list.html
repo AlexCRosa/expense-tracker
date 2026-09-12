@@ -1,13 +1,21 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Incomes - Talon Expense Tracker{% endblock title %}
 
 {% block content %}
 <h2>Incomes</h2>
-<a href="{% url 'core:income_create' %}" class="btn btn-primary">+ Add Income</a>
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'core:income_create' %}" class="btn btn-primary">+ Add Income</a>
+    {% include "core/_person_filter.html" %}
+</div>
 <table class="table mt-3">
     <thead>
         <tr>
             <th>Amount</th>
             <th>Source of Income</th>
+            <th>Category</th>
+            <th>Account</th>
             <th>Date of Credit</th>
             <th>Actions</th>
         </tr>
@@ -15,8 +23,10 @@
     <tbody>
         {% for income in object_list %}
         <tr>
-            <td>{{ income.amount }}</td>
-            <td>{{ income.description }}</td>
+            <td>${{ income.amount|floatformat:2|intcomma }}</td>
+            <td>{{ income.description|default_if_none:"" }}</td>
+            <td>{{ income.category }}</td>
+            <td>{{ income.account }}</td>
             <td>{{ income.date }}</td>
             <td>
                 <a href="{% url 'core:income_update' income.pk %}" class="btn btn-warning btn-sm">Edit</a>
@@ -25,7 +35,7 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="4">No incomes found.</td>
+            <td colspan="6">No incomes found.</td>
         </tr>
         {% endfor %}
     </tbody>

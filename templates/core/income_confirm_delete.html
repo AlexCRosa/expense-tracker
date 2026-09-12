@@ -1,13 +1,16 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
+{% block title %}Delete Income - Talon Expense Tracker{% endblock title %}
 
 {% block content %}
 <h2>Are you sure you want to delete this income?</h2>
-<p><strong>Amount:</strong> {{ object.amount }}</p>
-<p><strong>Source of Income:</strong> {{ object.description }}</p>
+<p><strong>Amount:</strong> ${{ object.absolute_amount|floatformat:2|intcomma }}</p>
+<p><strong>Source of Income:</strong> {{ object.description|default_if_none:"" }}</p>
 <p><strong>Date of Credit:</strong> {{ object.date }}</p>
 <form method="post">
     {% csrf_token %}
-    <button type="submit">Confirm</button>
-    <a href="{% url 'core:income_list' %}">Cancel</a>
+    <button type="submit" class="btn btn-danger">Delete</button>
+    <a href="{% url 'core:income_list' %}" class="btn btn-secondary">Cancel</a>
 </form>
 {% endblock %}

@@ -1,11 +1,74 @@
 {% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Delete Category - Talon Expense Tracker{% endblock title %}
 
 {% block content %}
 <h2>Confirm Delete</h2>
 <p>Are you sure you want to delete the category: <strong>{{ object.name }}</strong>?</p>
+
+{% if can_delete %}
 <form method="post">
     {% csrf_token %}
     <button type="submit" class="btn btn-danger">Delete</button>
     <a href="{% url 'core:category_list' %}" class="btn btn-secondary">Cancel</a>
 </form>
+{% else %}
+<div class="alert alert-warning">
+    This category is in use. Move what is listed below to another category first.
+</div>
+<a href="{% url 'core:category_list' %}" class="btn btn-secondary mb-3">Back to categories</a>
+{% endif %}
+
+{% if budgets %}
+<h5 class="mt-4">Budgets using it</h5>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Owner</th>
+            <th>Amount</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for budget in budgets %}
+        <tr>
+            <td>{{ budget.user.first_name }}</td>
+            <td>${{ budget.amount|floatformat:2|intcomma }}</td>
+            <td>{{ budget.start_date }}</td>
+            <td>{{ budget.end_date }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if transactions %}
+<h5 class="mt-4">Transactions using it</h5>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Amount</th>
+            <th>Type</th>
+            <th>Account</th>
+            <th>Added By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for transaction in transactions %}
+        <tr>
+            <td>{{ transaction.date|date:"M d, Y" }}</td>
+            <td>{{ transaction.description|default_if_none:"" }}</td>
+            <td>${{ transaction.absolute_amount|floatformat:2|intcomma }}</td>
+            <td>{{ transaction.get_type_display }}</td>
+            <td>{{ transaction.account }}</td>
+            <td>{{ transaction.user.first_name }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}
 {% endblock %}

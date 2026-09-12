@@ -1,14 +1,22 @@
 {% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Savings Goals - Talon Expense Tracker{% endblock title %}
 
 {% block content %}
 <h2>Savings Goals</h2>
-<a href="{% url 'core:savings_goal_create' %}" class="btn btn-primary mb-3">+ Add Savings Goal</a>
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'core:savings_goal_create' %}" class="btn btn-primary">+ Add Savings Goal</a>
+    {% include "core/_person_filter.html" %}
+</div>
 <table class="table">
     <thead>
         <tr>
             <th>Goal Name</th>
+            <th>Owner</th>
             <th>Goal</th>
-            <th>Amount Saved</th>
+            <th>Starting Save</th>
+            <th>Saved</th>
             <th>Amount to Goal</th>
             <th>Deadline</th>
             <th>Actions</th>
@@ -18,10 +26,19 @@
         {% for goal in savings_goals %}
         <tr>
             <td>{{ goal.goal_name }}</td>
-            <td>{{ goal.target_amount }}</td>
-            <td>{{ goal.current_amount }}</td>
-            <td>{{ goal.amount_to_goal }}</td>
-            <td>{{ goal.deadline|date:"M. d, Y" }} ({{ goal.remaining_days }})</td>
+            <td>{{ goal.user.first_name }}</td>
+            <td>${{ goal.target_amount|floatformat:2|intcomma }}</td>
+            <td>${{ goal.current_amount|floatformat:2|intcomma }}</td>
+            <td>${{ goal.saved_amount|floatformat:2|intcomma }}</td>
+            <td>${{ goal.amount_to_goal|floatformat:2|intcomma }}</td>
+            <td>
+                {{ goal.deadline|date:"M. d, Y" }}
+                {% if goal.days_to_deadline > 0 %}
+                ({{ goal.days_to_deadline }} days to go)
+                {% else %}
+                (Deadline passed)
+                {% endif %}
+            </td>
             <td>
                 <a href="{% url 'core:savings_goal_update' goal.pk %}" class="btn btn-warning btn-sm">Edit</a>
                 <a href="{% url 'core:savings_goal_delete' goal.pk %}" class="btn btn-danger btn-sm">Delete</a>
@@ -29,7 +46,7 @@
         </tr>
         {% empty %}
         <tr>
-            <td colspan="6">No savings goals found.</td>
+            <td colspan="8">No savings goals found.</td>
         </tr>
         {% endfor %}
     </tbody>

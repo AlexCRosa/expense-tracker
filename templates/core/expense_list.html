@@ -1,14 +1,22 @@
 {% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}Expenses - Talon Expense Tracker{% endblock title %}
 
 {% block content %}
 <h2>Expenses</h2>
-<a href="{% url 'core:expense_create' %}" class="btn btn-primary">+ Add Expense</a>
-<a href="{% url 'core:category_list' %}" class="btn btn-primary"> Manage Categories</a>
+<div class="d-flex align-items-center mb-3">
+    <a href="{% url 'core:expense_create' %}" class="btn btn-primary me-2">+ Add Expense</a>
+    <a href="{% url 'core:category_list' %}" class="btn btn-primary">Manage Categories</a>
+    {% include "core/_person_filter.html" %}
+</div>
 <table class="table mt-3">
     <thead>
         <tr>
             <th>Amount</th>
+            <th>Type</th>
             <th>Category</th>
+            <th>Account</th>
             <th>Description</th>
             <th>Date</th>
             <th>Actions</th>
@@ -17,14 +25,20 @@
     <tbody>
         {% for expense in object_list %}
         <tr>
-            <td>${{ expense.amount }}</td>
+            <td>${{ expense.absolute_amount|floatformat:2|intcomma }}</td>
+            <td>{{ expense.get_type_display }}</td>
             <td>{{ expense.category }}</td>
-            <td>{{ expense.description }}</td>
+            <td>{{ expense.account }}</td>
+            <td>{{ expense.description|default_if_none:"" }}</td>
             <td>{{ expense.date|date:"M d, Y" }}</td>
             <td>
                 <a href="{% url 'core:expense_update' expense.pk %}" class="btn btn-warning btn-sm">Edit</a>
                 <a href="{% url 'core:expense_delete' expense.pk %}" class="btn btn-danger btn-sm">Delete</a>
             </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="7">No expenses found.</td>
         </tr>
         {% endfor %}
     </tbody>
