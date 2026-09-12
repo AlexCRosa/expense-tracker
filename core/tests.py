@@ -423,6 +423,13 @@ class ReviewTest(TestCase):
         self.assertEqual(Transaction.objects.filter(reviewed=False).count(), 0)
         self.assertEqual(Transaction.objects.filter(reviewed_by=self.user).count(), 2)
 
+    def test_review_dropdowns_have_labels(self):
+        response = self.client.get(reverse("core:review_list"))
+
+        self.assertContains(response, 'aria-label="Account"')
+        self.assertContains(response, 'aria-label="Type"')
+        self.assertContains(response, 'aria-label="Category"')
+
     def test_review_requires_login(self):
         self.client.logout()
         response = self.client.get(reverse("core:review_list"))

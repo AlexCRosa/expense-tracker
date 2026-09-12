@@ -141,3 +141,4 @@ class ReviewForm(forms.ModelForm):
         # A table row cannot hold a form tag, so the fields point at one by id
         for field in self.fields.values():
             field.widget.attrs["form"] = f"review-{self.instance.pk}"
+            field.widget.attrs["aria-label"] = field.label
