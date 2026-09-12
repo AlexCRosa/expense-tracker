@@ -302,39 +302,28 @@ class IncomeDeleteView(LoginRequiredMixin, DeleteView):
 class BudgetListView(LoginRequiredMixin, ListView):
     model = Budget
     template_name = "core/budget_list.html"
+    context_object_name = "budgets"
 
     def get_queryset(self):
-        return Budget.objects.filter(user=self.request.user).select_related("category")
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        budgets = self.get_queryset()  # Get only the budgets of the current user
-        budgets_data = []
-        for budget in budgets:
-            # Sum expenses of the current user within the budget's date range
-            value_spent = budget.category.expenses.filter(
-                user=self.request.user,  # Filter by the current user
-                date__range=(budget.start_date, budget.end_date),
-            ).aggregate(
-                total=Coalesce(
-                    Sum("amount", output_field=DecimalField()),
+        # Sum each budget's own expenses within its own date range
+        return (
+            Budget.objects.filter(user=self.request.user)
+            .select_related("category")
+            .annotate(
+                value_spent=Coalesce(
+                    Sum(
+                        "category__expenses__amount",
+                        filter=Q(
+                            category__expenses__user=self.request.user,
+                            category__expenses__date__gte=F("start_date"),
+                            category__expenses__date__lte=F("end_date"),
+                        ),
+                    ),
                     Value(0, output_field=DecimalField()),
                 )
-            )["total"]
-
-            budgets_data.append(
-                {
-                    "id": budget.id,
-                    "category": budget.category.name,
-                    "budget_defined": budget.amount,
-                    "value_spent": value_spent,
-                    "budget_available": budget.amount - value_spent,
-                    "start_date": budget.start_date,
-                    "end_date": budget.end_date,
-                }
             )
-        context["budgets_data"] = budgets_data
-        return context
+            .annotate(budget_available=F("amount") - F("value_spent"))
+        )
 
 
 class BudgetCreateView(LoginRequiredMixin, CreateView):

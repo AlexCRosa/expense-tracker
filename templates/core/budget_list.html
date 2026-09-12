@@ -18,10 +18,10 @@
         </tr>
     </thead>
     <tbody>
-        {% for budget in budgets_data %}
+        {% for budget in budgets %}
         <tr>
             <td>{{ budget.category }}</td>
-            <td>{{ budget.budget_defined|floatformat:2 }}</td>
+            <td>{{ budget.amount|floatformat:2 }}</td>
             <td>{{ budget.value_spent|floatformat:2 }}</td>
             <td>{{ budget.budget_available|floatformat:2 }}</td>
             <td>{{ budget.start_date }}</td>
