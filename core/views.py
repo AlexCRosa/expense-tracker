@@ -23,7 +23,7 @@ from .forms import (
     IncomeForm,
     SavingsGoalForm,
 )
-from .models import Account, Budget, Category, Expense, Income, SavingsGoal, User
+from .models import Account, Budget, Category, SavingsGoal, Transaction, User
 
 
 class PersonFilterMixin:
@@ -69,18 +69,19 @@ class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
         context["selected_month"] = month
         context["selected_year"] = year
 
-        expenses = self.filter_by_person(
-            Expense.objects.filter(date__month=month, date__year=year)
+        month_transactions = self.filter_by_person(
+            Transaction.objects.filter(date__month=month, date__year=year)
         )
+        spending = month_transactions.filter(type__in=Transaction.SPENDING_TYPES)
 
-        context["last_expenses"] = expenses.select_related("user", "category").order_by(
+        context["last_expenses"] = spending.select_related("user", "category").order_by(
             "-date"
         )[:3]
 
         # Spending for the selected month grouped by the person who added it
         context["spending_by_user"] = (
-            expenses.values("user__first_name")
-            .annotate(total=Sum("amount"))
+            spending.values("user__first_name")
+            .annotate(total=-Sum("amount"))
             .order_by("-total")
         )
 
@@ -101,13 +102,14 @@ class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
         context["budgets"] = (
             self.filter_by_person(Budget.objects.select_related("category"))
             .annotate(
-                value_spent=Coalesce(
+                value_spent=-Coalesce(
                     Sum(
-                        "category__expenses__amount",
+                        "category__transactions__amount",
                         filter=Q(
-                            category__expenses__user=F("user"),
-                            category__expenses__date__month=month,
-                            category__expenses__date__year=year,
+                            category__transactions__user=F("user"),
+                            category__transactions__type__in=Transaction.SPENDING_TYPES,
+                            category__transactions__date__month=month,
+                            category__transactions__date__year=year,
                         ),
                     ),
                     Value(0, output_field=DecimalField()),
@@ -117,17 +119,20 @@ class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
         )
 
         total_income = (
-            self.filter_by_person(
-                Income.objects.filter(date__year=year, date__month=month)
-            ).aggregate(Sum("amount"))["amount__sum"]
+            month_transactions.filter(type="income").aggregate(Sum("amount"))[
+                "amount__sum"
+            ]
             or 0
         )
         context["total_income"] = total_income
 
-        total_expenses = expenses.aggregate(Sum("amount"))["amount__sum"] or 0
+        total_expenses = -(spending.aggregate(Sum("amount"))["amount__sum"] or 0)
         context["total_expenses"] = total_expenses
 
-        context["balance"] = total_income - total_expenses
+        # Internal moves cancel between their two legs, so every amount counts here
+        context["balance"] = (
+            month_transactions.aggregate(Sum("amount"))["amount__sum"] or 0
+        )
 
         return context
 
@@ -188,15 +193,19 @@ class AccountDeleteView(LoginRequiredMixin, DeleteView):
 
 # Expense Views
 class ExpenseListView(LoginRequiredMixin, PersonFilterMixin, ListView):
-    model = Expense
+    model = Transaction
     template_name = "core/expense_list.html"
 
     def get_queryset(self):
-        return self.filter_by_person(Expense.objects.select_related("category"))
+        return self.filter_by_person(
+            Transaction.objects.exclude(type="income").select_related(
+                "category", "account"
+            )
+        )
 
 
 class ExpenseCreateView(LoginRequiredMixin, CreateView):
-    model = Expense
+    model = Transaction
     form_class = ExpenseForm
     template_name = "core/expense_form.html"
     success_url = reverse_lazy("core:expense_list")
@@ -213,29 +222,33 @@ class ExpenseCreateView(LoginRequiredMixin, CreateView):
 
 
 class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
-    model = Expense
+    model = Transaction
     form_class = ExpenseForm
     template_name = "core/expense_form.html"
     success_url = reverse_lazy("core:expense_list")
 
 
 class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
-    model = Expense
+    model = Transaction
     template_name = "core/expense_confirm_delete.html"
     success_url = reverse_lazy("core:expense_list")
 
 
 # Income Views
 class IncomeListView(LoginRequiredMixin, PersonFilterMixin, ListView):
-    model = Income
+    model = Transaction
     template_name = "core/income_list.html"
 
     def get_queryset(self):
-        return self.filter_by_person(Income.objects.all())
+        return self.filter_by_person(
+            Transaction.objects.filter(type="income").select_related(
+                "category", "account"
+            )
+        )
 
 
 class IncomeCreateView(LoginRequiredMixin, CreateView):
-    model = Income
+    model = Transaction
     form_class = IncomeForm
     template_name = "core/income_form.html"
     success_url = reverse_lazy("core:income_list")
@@ -251,14 +264,14 @@ class IncomeCreateView(LoginRequiredMixin, CreateView):
 
 
 class IncomeUpdateView(LoginRequiredMixin, UpdateView):
-    model = Income
+    model = Transaction
     form_class = IncomeForm
     template_name = "core/income_form.html"
     success_url = reverse_lazy("core:income_list")
 
 
 class IncomeDeleteView(LoginRequiredMixin, DeleteView):
-    model = Income
+    model = Transaction
     template_name = "core/income_confirm_delete.html"
     success_url = reverse_lazy("core:income_list")
 
@@ -274,13 +287,14 @@ class BudgetListView(LoginRequiredMixin, PersonFilterMixin, ListView):
         return self.filter_by_person(
             Budget.objects.select_related("category", "user")
             .annotate(
-                value_spent=Coalesce(
+                value_spent=-Coalesce(
                     Sum(
-                        "category__expenses__amount",
+                        "category__transactions__amount",
                         filter=Q(
-                            category__expenses__user=F("user"),
-                            category__expenses__date__gte=F("start_date"),
-                            category__expenses__date__lte=F("end_date"),
+                            category__transactions__user=F("user"),
+                            category__transactions__type__in=Transaction.SPENDING_TYPES,
+                            category__transactions__date__gte=F("start_date"),
+                            category__transactions__date__lte=F("end_date"),
                         ),
                     ),
                     Value(0, output_field=DecimalField()),

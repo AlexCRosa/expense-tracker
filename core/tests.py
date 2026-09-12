@@ -10,15 +10,15 @@ from core.models import (
     Account,
     Budget,
     Category,
-    Expense,
-    Income,
     SavingsGoal,
+    Transaction,
     User,
 )
 
 
 class DashboardViewTests(TestCase):
     def setUp(self):
+        self.account = Account.objects.create(name="Checking-DashboardViewTests")
         # Create a test user and log them in
         self.user = User.objects.create_user(
             username="testuser", email="testuser@example.com", password="testpassword"
@@ -34,25 +34,33 @@ class DashboardViewTests(TestCase):
         self.category = Category.objects.create(name="Groceries")
 
         # Create some expenses for the user
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=999,
             category=self.category,
             date=datetime(2024, 11, 5),
         )
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=100,
             category=self.category,
             date=datetime(2024, 11, 10),
         )
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=200,
             category=self.category,
             date=datetime(2024, 11, 15),
         )
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=50,
             category=self.category,
@@ -78,11 +86,21 @@ class DashboardViewTests(TestCase):
         )
 
         # Create an income entry for the user
-        self.income1 = Income.objects.create(
-            user=self.user, amount=100.50, description="Salary", date="2024-11-01"
+        self.income1 = Transaction.objects.create(
+            type="income",
+            account=self.account,
+            user=self.user,
+            amount=100.50,
+            description="Salary",
+            date="2024-11-01",
         )
-        self.income2 = Income.objects.create(
-            user=self.user, amount=50.75, description="Freelance", date="2024-11-15"
+        self.income2 = Transaction.objects.create(
+            type="income",
+            account=self.account,
+            user=self.user,
+            amount=50.75,
+            description="Freelance",
+            date="2024-11-15",
         )
 
     def test_dashboard_access(self):
@@ -115,14 +133,10 @@ class DashboardViewTests(TestCase):
     def test_balance_section(self):
         response = self.client.get(reverse("core:dashboard") + "?month=11&year=2024")
 
-        # Calculate expected balance
-        total_income = Income.objects.filter(
-            user=self.user, date__month=11, date__year=2024
+        # Signed amounts, so the balance is simply their sum
+        expected_balance = Transaction.objects.filter(
+            date__month=11, date__year=2024
         ).aggregate(total=Sum("amount"))["total"]
-        total_expenses = Expense.objects.filter(
-            user=self.user, date__month=11, date__year=2024
-        ).aggregate(total=Sum("amount"))["total"]
-        expected_balance = total_income - total_expenses
 
         # Verify the balance calculation
         if expected_balance >= 0:
@@ -160,6 +174,9 @@ class DashboardViewTests(TestCase):
 
 class SavingsGoalContributionTest(TestCase):
     def setUp(self):
+        self.account = Account.objects.create(
+            name="Checking-SavingsGoalContributionTest"
+        )
         self.user = User.objects.create_user(
             username="testuser", email="testuser@example.com", password="password123"
         )
@@ -184,7 +201,9 @@ class SavingsGoalContributionTest(TestCase):
         self.assertEqual(self.saved(), 100)
 
     def test_savings_inside_the_window_counts(self):
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=250,
             category=self.savings,
@@ -194,7 +213,9 @@ class SavingsGoalContributionTest(TestCase):
         self.assertEqual(self.saved(), 350)
 
     def test_savings_outside_the_window_does_not_count(self):
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=250,
             category=self.savings,
@@ -204,7 +225,9 @@ class SavingsGoalContributionTest(TestCase):
         self.assertEqual(self.saved(), 100)
 
     def test_savings_with_no_goal_does_not_count(self):
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=250,
             category=self.savings,
@@ -213,7 +236,9 @@ class SavingsGoalContributionTest(TestCase):
         self.assertEqual(self.saved(), 100)
 
     def test_anyone_can_feed_a_goal(self):
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.other_user,
             amount=400,
             category=self.savings,
@@ -223,7 +248,9 @@ class SavingsGoalContributionTest(TestCase):
         self.assertEqual(self.saved(), 500)
 
     def test_list_shows_starting_save_and_saved(self):
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=250,
             category=self.savings,
@@ -309,13 +336,16 @@ class UserManagersTest(TestCase):
 
 class ExpenseModelTest(TestCase):
     def setUp(self):
+        self.account = Account.objects.create(name="Checking-ExpenseModelTest")
         self.user = User.objects.create_user(
             username="testuser", email="testuser@example.com", password="password123"
         )
         self.category = Category.objects.create(
             name="Food", description="Groceries and dining"
         )
-        self.expense = Expense.objects.create(
+        self.expense = Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=100.50,
             category=self.category,
@@ -325,14 +355,14 @@ class ExpenseModelTest(TestCase):
 
     def test_expense_creation(self):
         self.assertEqual(self.expense.user, self.user)
-        self.assertEqual(self.expense.amount, 100.50)
+        self.assertEqual(self.expense.amount, -100.50)
         self.assertEqual(self.expense.category, self.category)
         self.assertEqual(self.expense.description, "Dinner at a restaurant")
         self.assertEqual(self.expense.date, date(2024, 11, 25))
 
     def test_expense_string_representation(self):
         self.assertEqual(
-            str(self.expense), f"100.5 - {self.category} on {self.expense.date}"
+            str(self.expense), f"-100.5 - {self.category} on {self.expense.date}"
         )
 
     def test_expense_list_view(self):
@@ -348,6 +378,8 @@ class ExpenseModelTest(TestCase):
         response = self.client.post(
             reverse("core:expense_create"),
             {
+                "account": self.account.id,
+                "type": "expense",
                 "amount": 50.75,
                 "category": self.category.id,
                 "description": "Groceries shopping",
@@ -356,8 +388,8 @@ class ExpenseModelTest(TestCase):
         )
 
         self.assertRedirects(response, reverse("core:expense_list"))
-        self.assertEqual(Expense.objects.count(), 2)
-        new_expense = Expense.objects.last()
+        self.assertEqual(Transaction.objects.count(), 2)
+        new_expense = Transaction.objects.last()
         self.assertEqual(new_expense.description, "Groceries shopping")
 
     def test_expense_update_view(self):
@@ -365,6 +397,8 @@ class ExpenseModelTest(TestCase):
         response = self.client.post(
             reverse("core:expense_update", args=[self.expense.id]),
             {
+                "account": self.account.id,
+                "type": "expense",
                 "amount": 120.00,
                 "category": self.category.id,
                 "description": "Updated Dinner expense",
@@ -374,7 +408,7 @@ class ExpenseModelTest(TestCase):
 
         self.assertRedirects(response, reverse("core:expense_list"))
         self.expense.refresh_from_db()
-        self.assertEqual(self.expense.amount, 120.00)
+        self.assertEqual(self.expense.amount, -120.00)
         self.assertEqual(self.expense.description, "Updated Dinner expense")
 
     def test_expense_delete_view(self):
@@ -384,20 +418,31 @@ class ExpenseModelTest(TestCase):
         )
 
         self.assertRedirects(response, reverse("core:expense_list"))
-        self.assertEqual(Expense.objects.count(), 0)
+        self.assertEqual(Transaction.objects.count(), 0)
 
 
 class IncomeModelTest(TestCase):
     def setUp(self):
+        self.account = Account.objects.create(name="Checking-IncomeModelTest")
         self.user = User.objects.create_user(
             username="testuser", email="testuser@example.com", password="password123"
         )
         self.client.login(username="testuser", password="password123")
-        self.income1 = Income.objects.create(
-            user=self.user, amount=100.50, description="Salary", date="2024-11-01"
+        self.income1 = Transaction.objects.create(
+            type="income",
+            account=self.account,
+            user=self.user,
+            amount=100.50,
+            description="Salary",
+            date="2024-11-01",
         )
-        self.income2 = Income.objects.create(
-            user=self.user, amount=50.75, description="Freelance", date="2024-11-15"
+        self.income2 = Transaction.objects.create(
+            type="income",
+            account=self.account,
+            user=self.user,
+            amount=50.75,
+            description="Freelance",
+            date="2024-11-15",
         )
 
     def test_income_list_view(self):
@@ -412,6 +457,7 @@ class IncomeModelTest(TestCase):
         response = self.client.post(
             reverse("core:income_create"),
             {
+                "account": self.account.id,
                 "amount": 200.00,
                 "description": "Bonus",
                 "date": "2024-11-20",
@@ -419,15 +465,16 @@ class IncomeModelTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertTrue(Income.objects.filter(description="Bonus").exists())
+        self.assertTrue(Transaction.objects.filter(description="Bonus").exists())
 
-        income = Income.objects.get(description="Bonus")
+        income = Transaction.objects.get(description="Bonus")
         self.assertEqual(income.user, self.user)
 
     def test_income_update_view(self):
         response = self.client.post(
             reverse("core:income_update", kwargs={"pk": self.income1.pk}),
             {
+                "account": self.account.id,
                 "amount": 120.00,
                 "description": "Updated Salary",
                 "date": "2024-11-01",
@@ -445,13 +492,15 @@ class IncomeModelTest(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertFalse(Income.objects.filter(pk=self.income2.pk).exists())
+        self.assertFalse(Transaction.objects.filter(pk=self.income2.pk).exists())
 
     def test_income_list_shows_every_income(self):
         other_user = User.objects.create_user(
             username="otheruser", email="otheruser@example.com", password="password123"
         )
-        Income.objects.create(
+        Transaction.objects.create(
+            type="income",
+            account=self.account,
             user=other_user,
             amount=500.00,
             description="Other User Income",
@@ -468,7 +517,9 @@ class IncomeModelTest(TestCase):
         other_user = User.objects.create_user(
             username="otheruser", email="otheruser@example.com", password="password123"
         )
-        Income.objects.create(
+        Transaction.objects.create(
+            type="income",
+            account=self.account,
             user=other_user,
             amount=500.00,
             description="Other User Income",
@@ -484,6 +535,7 @@ class IncomeModelTest(TestCase):
 
 class CategoryModelTest(TestCase):
     def setUp(self):
+        self.account = Account.objects.create(name="Checking-CategoryModelTest")
         self.user = User.objects.create_user(
             username="testuser", email="testuser@example.com", password="password123"
         )
@@ -550,6 +602,7 @@ class CategoryModelTest(TestCase):
 
 class BudgetModelTest(TestCase):
     def setUp(self):
+        self.account = Account.objects.create(name="Checking-BudgetModelTest")
         self.user = User.objects.create_user(
             username="testuser", email="testuser@example.com", password="password123"
         )
@@ -580,21 +633,27 @@ class BudgetModelTest(TestCase):
         )
 
         # Add expenses for the first user
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=70,
             category=self.category1,
             description="Movies",
             date=date(2024, 11, 5),
         )
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=30,
             category=self.category1,
             description="Concert",
             date=date(2024, 11, 10),
         )
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.user,
             amount=50,
             category=self.category2,
@@ -604,7 +663,9 @@ class BudgetModelTest(TestCase):
 
         # Create categories and expenses for the second user
         other_category = Category.objects.create(name="Other Entertainment")
-        Expense.objects.create(
+        Transaction.objects.create(
+            type="expense",
+            account=self.account,
             user=self.other_user,
             amount=100,
             category=other_category,
@@ -698,6 +759,7 @@ class BudgetModelTest(TestCase):
 
 class SavingsGoalModelTest(TestCase):
     def setUp(self):
+        self.account = Account.objects.create(name="Checking-SavingsGoalModelTest")
         self.user = User.objects.create_user(
             username="testuser", password="password123", email="testuser@example.com"
         )

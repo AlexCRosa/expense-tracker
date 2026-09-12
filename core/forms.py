@@ -1,13 +1,25 @@
 from django import forms
 
-from .models import Account, Budget, Category, Expense, Income, SavingsGoal
+from .models import Account, Budget, Category, SavingsGoal, Transaction
 
 
 class ExpenseForm(forms.ModelForm):
+    """Money going out: the user types a positive amount and the model signs it."""
+
     class Meta:
-        model = Expense
-        fields = ["amount", "category", "savings_goal", "description", "date"]
+        model = Transaction
+        fields = [
+            "account",
+            "type",
+            "amount",
+            "category",
+            "savings_goal",
+            "description",
+            "date",
+        ]
         widgets = {
+            "account": forms.Select(attrs={"class": "form-select"}),
+            "type": forms.Select(attrs={"class": "form-select"}),
             "amount": forms.NumberInput(attrs={"class": "form-control"}),
             "category": forms.Select(attrs={"class": "form-select"}),
             "savings_goal": forms.Select(attrs={"class": "form-select"}),
@@ -19,21 +31,36 @@ class ExpenseForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["type"].choices = [
+            (value, label)
+            for value, label in Transaction.TYPE_CHOICES
+            if value != "income"
+        ]
+        if self.instance.pk:
+            self.initial["amount"] = abs(self.instance.amount)
         savings = Category.objects.filter(name="Savings").first()
         self.savings_category_id = savings.pk if savings else ""
 
 
 class IncomeForm(forms.ModelForm):
+    """Money coming in, always typed as income."""
+
     class Meta:
-        model = Income
-        fields = ["amount", "description", "date"]
+        model = Transaction
+        fields = ["account", "amount", "category", "description", "date"]
         widgets = {
+            "account": forms.Select(attrs={"class": "form-select"}),
             "amount": forms.NumberInput(attrs={"class": "form-control"}),
+            "category": forms.Select(attrs={"class": "form-select"}),
             "description": forms.Textarea(attrs={"class": "form-control", "rows": 3}),
             "date": forms.DateInput(
                 attrs={"class": "form-control", "type": "date"}, format="%Y-%m-%d"
             ),
         }
+
+    def save(self, commit=True):
+        self.instance.type = "income"
+        return super().save(commit)
 
 
 class BudgetForm(forms.ModelForm):

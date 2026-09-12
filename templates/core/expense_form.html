@@ -10,6 +10,20 @@
     <div class="alert alert-danger">{{ error }}</div>
     {% endfor %}
     <div class="mb-3">
+        <label for="id_account">Account:</label>
+        {{ form.account }}
+        {% for error in form.account.errors %}
+        <div class="text-danger">{{ error }}</div>
+        {% endfor %}
+    </div>
+    <div class="mb-3">
+        <label for="id_type">Type:</label>
+        {{ form.type }}
+        {% for error in form.type.errors %}
+        <div class="text-danger">{{ error }}</div>
+        {% endfor %}
+    </div>
+    <div class="mb-3">
         <label for="id_amount">Amount:</label>
         {{ form.amount }}
         {% for error in form.amount.errors %}

@@ -33,11 +33,32 @@ class Account(models.Model):
         return self.name
 
 
-class Expense(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="expenses")
+class Transaction(models.Model):
+    TYPE_CHOICES = [
+        ("expense", "Expense"),
+        ("income", "Income"),
+        ("payment", "Payment"),
+        ("savings", "Savings"),
+        ("fee", "Fee"),
+        ("tax", "Tax"),
+        ("internal", "Internal"),
+    ]
+    SPENDING_TYPES = ["expense", "fee", "tax"]
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="transactions"
+    )
+    account = models.ForeignKey(
+        "Account", on_delete=models.PROTECT, related_name="transactions"
+    )
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES, default="expense")
     amount = models.DecimalField(max_digits=10, decimal_places=2)
     category = models.ForeignKey(
-        Category, on_delete=models.SET_NULL, null=True, related_name="expenses"
+        Category,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="transactions",
     )
     savings_goal = models.ForeignKey(
         "SavingsGoal",
@@ -48,21 +69,31 @@ class Expense(models.Model):
     )
     description = models.TextField(blank=True, null=True)
     date = models.DateField(default=timezone.now)
+    reviewed = models.BooleanField(default=False)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_transactions",
+    )
+
+    def save(self, *args, **kwargs):
+        """Money in is positive, money out is negative, except internal moves."""
+        if self.type == "income":
+            self.amount = abs(self.amount)
+        elif self.type != "internal":
+            self.amount = -abs(self.amount)
+        super().save(*args, **kwargs)
+
+    @property
+    def absolute_amount(self):
+        """The amount without its sign, for pages that already say which way it went."""
+        return abs(self.amount)
 
     def __str__(self):
         return f"{self.amount} - {self.category} on {self.date}"
-
-
-class Income(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="incomes")
-    amount = models.DecimalField(max_digits=10, decimal_places=2)
-    description = models.TextField(
-        verbose_name="Source of Income", blank=True, null=True
-    )
-    date = models.DateField(verbose_name="Date of Credit", default=timezone.now)
-
-    def __str__(self):
-        return f"{self.amount} on {self.date}"
 
 
 class Budget(models.Model):
@@ -81,7 +112,7 @@ class SavingsGoalQuerySet(models.QuerySet):
         """Adds the starting amount to the savings filed against the goal in its window."""
         return self.annotate(
             saved_amount=F("current_amount")
-            + Coalesce(
+            - Coalesce(
                 Sum(
                     "contributions__amount",
                     filter=Q(

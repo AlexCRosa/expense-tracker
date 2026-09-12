@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import Budget, Category, Expense, Income, SavingsGoal, User
+from .models import Account, Budget, Category, SavingsGoal, Transaction, User
 
 
 class CustomUserAdmin(UserAdmin):
@@ -34,17 +34,17 @@ class CategoryAdmin(admin.ModelAdmin):
     search_fields = ["name"]
 
 
-@admin.register(Expense)
-class ExpenseAdmin(admin.ModelAdmin):
-    list_display = ["amount", "user", "category", "description", "date"]
-    list_filter = ["category", ("date", admin.DateFieldListFilter)]
+@admin.register(Account)
+class AccountAdmin(admin.ModelAdmin):
+    list_display = ["name"]
+    search_fields = ["name"]
+
+
+@admin.register(Transaction)
+class TransactionAdmin(admin.ModelAdmin):
+    list_display = ["date", "amount", "type", "category", "account", "user", "reviewed"]
+    list_filter = ["type", "reviewed", "category", "account"]
     search_fields = ["description"]
-
-
-@admin.register(Income)
-class IncomeAdmin(admin.ModelAdmin):
-    list_display = ["amount", "user", "description", "date"]
-    list_filter = [("date", admin.DateFieldListFilter)]
 
 
 @admin.register(Budget)
