@@ -1,5 +1,7 @@
 {% extends "base.html" %}
 
+{% block title %}Delete Budget - Talon Expense Tracker{% endblock title %}
+
 {% block content %}
 <h2>Confirm Delete</h2>
 <p>Are you sure you want to delete the budget for <strong>{{ object.category }}</strong> with an amount of <strong>${{ object.amount }}</strong>?</p>

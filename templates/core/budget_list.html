@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block title %}Budgets - Talon Expense Tracker{% endblock title %}
+
 {% block content %}
 <h2>Budgets</h2>
 <a href="{% url 'core:budget_create' %}" class="btn btn-primary mb-3">+ Add Budget</a>
