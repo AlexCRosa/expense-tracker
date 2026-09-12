@@ -385,15 +385,11 @@ class BudgetCreateView(LoginRequiredMixin, CreateView):
     template_name = "core/budget_form.html"
     success_url = reverse_lazy("core:budget_list")
 
-    def form_valid(self, form):
+    def get_form(self, form_class=None):
+        form = super().get_form(form_class)
+        # The form checks for a duplicate budget, so it needs the owner before validating
         form.instance.user = self.request.user
-        if Budget.objects.filter(
-            user=self.request.user, category=form.cleaned_data["category"]
-        ).exists():
-            messages.error(self.request, "You already have a budget for this category.")
-            return self.form_invalid(form)
-
-        return super().form_valid(form)
+        return form
 
     def get_initial(self):
         initial = super().get_initial()

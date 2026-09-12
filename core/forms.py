@@ -82,6 +82,16 @@ class BudgetForm(forms.ModelForm):
             ),
         }
 
+    def clean(self):
+        cleaned = super().clean()
+        category = cleaned.get("category")
+        duplicate = Budget.objects.filter(
+            user_id=self.instance.user_id, category=category
+        ).exclude(pk=self.instance.pk)
+        if category and duplicate.exists():
+            raise forms.ValidationError("You already have a budget for this category.")
+        return cleaned
+
 
 class SavingsGoalForm(forms.ModelForm):
     class Meta:

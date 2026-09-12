@@ -991,6 +991,21 @@ class BudgetModelTest(TestCase):
 
         self.assertContains(response, "You already have a budget for this category.")
 
+    def test_prevent_moving_budget_onto_a_budgeted_category(self):
+        response = self.client.post(
+            reverse("core:budget_update", args=[self.budget2.id]),
+            {
+                "category": self.category1.id,
+                "amount": 50.00,
+                "start_date": "2024-11-01",
+                "end_date": "2024-11-30",
+            },
+        )
+
+        self.assertContains(response, "You already have a budget for this category.")
+        self.budget2.refresh_from_db()
+        self.assertEqual(self.budget2.category, self.category2)
+
     def test_update_budget(self):
         self.client.login(username="testuser", password="password123")
         response = self.client.post(
