@@ -1,4 +1,3 @@
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import (
     LoginView,
@@ -11,28 +10,13 @@ from django.contrib.auth.views import (
     PasswordResetView,
 )
 from django.urls import reverse_lazy
-from django.views.generic import CreateView
 
 from .forms import (
     CustomAuthenticationForm,
     CustomPasswordChangeForm,
     CustomPasswordResetForm,
     CustomSetPasswordForm,
-    CustomUserCreationForm,
 )
-
-
-# Signup View
-class SignupView(CreateView):
-    form_class = CustomUserCreationForm
-    template_name = "registration/signup.html"
-    success_url = reverse_lazy("accounts:login")
-
-    def form_valid(self, form):
-        """Save the form and add a success message."""
-        form.save()
-        messages.success(self.request, "Account created successfully! Please log in.")
-        return super().form_valid(form)
 
 
 # Custom Login View

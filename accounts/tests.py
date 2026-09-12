@@ -5,29 +5,10 @@ from django.urls import reverse
 from core.models import User
 
 
-class UserSignupTests(TestCase):
-    def test_user_signup(self):
-        signup_url = reverse("accounts:signup")
-        response = self.client.post(
-            signup_url,
-            {
-                "username": "newuser",
-                "email": "newuser@example.com",
-                "first_name": "New",
-                "last_name": "User",
-                "password1": "ComplexPass123!",
-                "password2": "ComplexPass123!",
-            },
-        )
-
-        if response.status_code == 302:
-            self.assertRedirects(response, reverse("accounts:login"))
-        else:
-            print("Response Content:", response.content.decode())
-            if response.context and "form" in response.context:
-                print("Form Errors:", response.context["form"].errors)
-
-        self.assertTrue(User.objects.filter(username="newuser").exists())
+class SignupClosedTests(TestCase):
+    def test_signup_page_is_gone(self):
+        response = self.client.get("/accounts/signup/")
+        self.assertEqual(response.status_code, 404)
 
 
 class UserLoginTests(TestCase):

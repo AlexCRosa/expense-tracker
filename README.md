@@ -10,8 +10,8 @@
 The **Expense Tracker** project is a web application designed to help users efficiently manage their personal finances. Built using Python and the Django framework, the application provides a simple and intuitive platform for users to log their income and expenses, categorize transactions, set budgets, and track savings goals.
 
 ## Features
-- **User Registration and Authentication**:
-  - Sign up, log in, and manage user accounts securely.
+- **User Authentication**:
+  - Log in and manage user accounts securely.
 - **Expense and Income Logging**:
   - Log daily expenses and income with detailed descriptions and categorization.
 - **Category Management**:
