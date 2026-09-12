@@ -3,7 +3,7 @@ from datetime import date
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import DecimalField, ExpressionWrapper, F, Q, Sum, Value
+from django.db.models import DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
 from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
@@ -86,21 +86,11 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         context["savings_goals"] = savings_goals
 
         # Budgets Overview for the selected month/year
-        budgets = Budget.objects.filter(user=user).annotate(
-            budget_defined=F("amount"),
-            value_spent=Coalesce(
-                Sum(
-                    "category__expenses__amount",
-                    filter=Q(
-                        category__expenses__date__month=month,
-                        category__expenses__date__year=year,
-                    ),
-                ),
-                Value(0, output_field=DecimalField()),
-            ),
-            remaining_budget=ExpressionWrapper(
-                F("amount")
-                - Coalesce(
+        context["budgets"] = (
+            Budget.objects.filter(user=user)
+            .select_related("category")
+            .annotate(
+                value_spent=Coalesce(
                     Sum(
                         "category__expenses__amount",
                         filter=Q(
@@ -108,28 +98,19 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                             category__expenses__date__year=year,
                         ),
                     ),
-                    Value(0),
-                ),
-                output_field=DecimalField(),
-            ),
-        )
-        context["budgets"] = budgets
-
-        # Total Income for the selected month/year
-        context["total_income"] = (
-            Income.objects.filter(
-                user=user, date__year=year, date__month=month
-            ).aggregate(Sum("amount"))["amount__sum"]
-            or 0
+                    Value(0, output_field=DecimalField()),
+                )
+            )
+            .annotate(remaining_budget=F("amount") - F("value_spent"))
         )
 
-        # Balance calculation
         total_income = (
             Income.objects.filter(
                 user=user, date__year=year, date__month=month
             ).aggregate(Sum("amount"))["amount__sum"]
             or 0
         )
+        context["total_income"] = total_income
 
         total_expenses = (
             Expense.objects.filter(
@@ -138,8 +119,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
             or 0
         )
 
-        balance = total_income - total_expenses
-        context["balance"] = balance
+        context["balance"] = total_income - total_expenses
 
         return context
 

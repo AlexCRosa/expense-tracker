@@ -159,7 +159,7 @@
                 {% for budget in budgets %}
                 <tr>
                     <td>{{ budget.category }}</td>
-                    <td>${{ budget.budget_defined|floatformat:2 }}</td>
+                    <td>${{ budget.amount|floatformat:2 }}</td>
                     <td>${{ budget.value_spent|floatformat:2 }}</td>
                     <td>${{ budget.remaining_budget|floatformat:2 }}</td>
                 </tr>
