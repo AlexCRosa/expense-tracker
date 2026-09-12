@@ -33,7 +33,11 @@ class PersonFilterMixin:
 
     def get_selected_person(self):
         person = self.request.GET.get("person", "")
-        return person if person.isdigit() else ""
+        try:
+            person_id = int(person)
+        except (TypeError, ValueError):
+            return ""
+        return str(person_id) if person_id >= 0 else ""
 
     def filter_by_person(self, queryset):
         person = self.get_selected_person()
