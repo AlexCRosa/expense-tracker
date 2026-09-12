@@ -16,6 +16,13 @@ from django.views.generic import (
     UpdateView,
 )
 
+from .forms import (
+    BudgetForm,
+    CategoryForm,
+    ExpenseForm,
+    IncomeForm,
+    SavingsGoalForm,
+)
 from .models import Budget, Category, Expense, Income, SavingsGoal
 
 
@@ -133,7 +140,7 @@ class CategoryListView(LoginRequiredMixin, ListView):
 
 class CategoryCreateView(LoginRequiredMixin, CreateView):
     model = Category
-    fields = ["name", "description"]
+    form_class = CategoryForm
     template_name = "core/category_form.html"
 
     def form_valid(self, form):
@@ -156,7 +163,7 @@ class CategoryCreateView(LoginRequiredMixin, CreateView):
 
 class CategoryUpdateView(LoginRequiredMixin, UpdateView):
     model = Category
-    fields = ["name", "description"]  # Include both fields
+    form_class = CategoryForm
     template_name = "core/category_form.html"
 
     def get_form(self, form_class=None):
@@ -205,7 +212,7 @@ class ExpenseListView(LoginRequiredMixin, ListView):
 
 class ExpenseCreateView(LoginRequiredMixin, CreateView):
     model = Expense
-    fields = ["amount", "category", "description", "date"]
+    form_class = ExpenseForm
     template_name = "core/expense_form.html"
     success_url = reverse_lazy("core:expense_list")
 
@@ -222,7 +229,7 @@ class ExpenseCreateView(LoginRequiredMixin, CreateView):
 
 class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
     model = Expense
-    fields = ["amount", "category", "description", "date"]
+    form_class = ExpenseForm
     template_name = "core/expense_form.html"
     success_url = reverse_lazy("core:expense_list")
 
@@ -244,7 +251,7 @@ class IncomeListView(LoginRequiredMixin, ListView):
 
 class IncomeCreateView(LoginRequiredMixin, CreateView):
     model = Income
-    fields = ["amount", "description", "date"]
+    form_class = IncomeForm
     template_name = "core/income_form.html"
     success_url = reverse_lazy("core:income_list")
 
@@ -260,7 +267,7 @@ class IncomeCreateView(LoginRequiredMixin, CreateView):
 
 class IncomeUpdateView(LoginRequiredMixin, UpdateView):
     model = Income
-    fields = ["amount", "description", "date"]
+    form_class = IncomeForm
     template_name = "core/income_form.html"
     success_url = reverse_lazy("core:income_list")
 
@@ -312,7 +319,7 @@ class BudgetListView(LoginRequiredMixin, ListView):
 
 class BudgetCreateView(LoginRequiredMixin, CreateView):
     model = Budget
-    fields = ["category", "amount", "start_date", "end_date"]
+    form_class = BudgetForm
     template_name = "core/budget_form.html"
     success_url = reverse_lazy("core:budget_list")
 
@@ -339,7 +346,7 @@ class BudgetCreateView(LoginRequiredMixin, CreateView):
 
 class BudgetUpdateView(LoginRequiredMixin, UpdateView):
     model = Budget
-    fields = ["category", "amount", "start_date", "end_date"]
+    form_class = BudgetForm
     template_name = "core/budget_form.html"
     success_url = reverse_lazy("core:budget_list")
 
@@ -375,7 +382,7 @@ class SavingsGoalListView(LoginRequiredMixin, ListView):
 
 class SavingsGoalCreateView(LoginRequiredMixin, CreateView):
     model = SavingsGoal
-    fields = ["goal_name", "target_amount", "current_amount", "deadline"]
+    form_class = SavingsGoalForm
     template_name = "core/savings_goal_form.html"
     success_url = reverse_lazy("core:savings_goal_list")
 
@@ -386,7 +393,7 @@ class SavingsGoalCreateView(LoginRequiredMixin, CreateView):
 
 class SavingsGoalUpdateView(LoginRequiredMixin, UpdateView):
     model = SavingsGoal
-    fields = ["goal_name", "target_amount", "current_amount", "deadline"]
+    form_class = SavingsGoalForm
     template_name = "core/savings_goal_form.html"
     success_url = reverse_lazy("core:savings_goal_list")
 

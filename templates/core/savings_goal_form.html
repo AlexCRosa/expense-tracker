@@ -32,7 +32,7 @@
     </div>
     <div class="mb-3">
         <label for="id_deadline">Deadline:</label>
-        <input type="date" name="deadline" id="id_deadline" value="{{ form.deadline.value|date:'Y-m-d' }}">
+        {{ form.deadline }}
         {% for error in form.deadline.errors %}
         <div class="text-danger">{{ error }}</div>
         {% endfor %}
