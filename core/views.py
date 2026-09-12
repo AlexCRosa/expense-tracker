@@ -212,9 +212,9 @@ class ExpenseListView(LoginRequiredMixin, PersonFilterMixin, ListView):
 
     def get_queryset(self):
         return self.filter_by_person(
-            Transaction.objects.exclude(type="income").select_related(
-                "category", "account"
-            )
+            Transaction.objects.exclude(
+                type__in=Transaction.NOT_ON_EXPENSE_PAGE
+            ).select_related("category", "account")
         )
 
 
@@ -242,7 +242,7 @@ class ExpenseUpdateView(LoginRequiredMixin, UpdateView):
     success_url = reverse_lazy("core:expense_list")
 
     def get_queryset(self):
-        return Transaction.objects.exclude(type="income")
+        return Transaction.objects.exclude(type__in=Transaction.NOT_ON_EXPENSE_PAGE)
 
 
 class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
@@ -251,7 +251,7 @@ class ExpenseDeleteView(LoginRequiredMixin, DeleteView):
     success_url = reverse_lazy("core:expense_list")
 
     def get_queryset(self):
-        return Transaction.objects.exclude(type="income")
+        return Transaction.objects.exclude(type__in=Transaction.NOT_ON_EXPENSE_PAGE)
 
 
 # Income Views

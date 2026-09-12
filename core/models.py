@@ -44,6 +44,7 @@ class Transaction(models.Model):
         ("internal", "Internal"),
     ]
     SPENDING_TYPES = ["expense", "fee", "tax"]
+    NOT_ON_EXPENSE_PAGE = ["income", "internal"]
 
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="transactions"

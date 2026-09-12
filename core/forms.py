@@ -40,7 +40,7 @@ class ExpenseForm(forms.ModelForm):
         self.fields["type"].choices = [
             (value, label)
             for value, label in Transaction.TYPE_CHOICES
-            if value not in ("income", "internal")
+            if value not in Transaction.NOT_ON_EXPENSE_PAGE
         ]
         if self.instance.pk:
             self.initial["amount"] = self.instance.absolute_amount

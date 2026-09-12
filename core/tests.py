@@ -541,6 +541,46 @@ class TypeCrossingTest(TestCase):
         self.assertTrue(Transaction.objects.filter(pk=self.income.pk).exists())
 
 
+class InternalTransferTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="alex", first_name="Alex", email="a@b.c", password="pw123456"
+        )
+        self.account = Account.objects.create(name="Checking")
+        self.transfer = Transaction.objects.create(
+            user=self.user,
+            account=self.account,
+            type="internal",
+            amount=500,
+            description="TRANSFER TO SAVINGS",
+            date=date(2026, 9, 3),
+        )
+        self.client.login(username="alex", password="pw123456")
+
+    def test_internal_transfer_not_on_expense_list(self):
+        response = self.client.get(reverse("core:expense_list"))
+        self.assertNotContains(response, "TRANSFER TO SAVINGS")
+
+    def test_internal_transfer_cannot_be_saved_as_expense(self):
+        response = self.client.post(
+            reverse("core:expense_update", args=[self.transfer.pk]),
+            {
+                "account": self.account.pk,
+                "type": "expense",
+                "amount": 500,
+                "date": "2026-09-03",
+            },
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.transfer.refresh_from_db()
+        self.assertEqual(self.transfer.type, "internal")
+
+    def test_internal_transfer_still_on_review_page(self):
+        response = self.client.get(reverse("core:review_list"))
+        self.assertContains(response, "TRANSFER TO SAVINGS")
+
+
 class DashboardInputTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
