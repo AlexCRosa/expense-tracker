@@ -20,7 +20,7 @@ def copy_expenses_and_incomes(apps, schema_editor):
         Transaction.objects.create(
             user=expense.user,
             account=account,
-type="savings" if expense.savings_goal_id else "expense"
+            type="savings" if expense.savings_goal_id else "expense",
             amount=-abs(expense.amount),
             category=expense.category,
             savings_goal=expense.savings_goal,
