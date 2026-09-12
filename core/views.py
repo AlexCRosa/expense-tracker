@@ -55,7 +55,7 @@ class DashboardView(LoginRequiredMixin, PersonFilterMixin, TemplateView):
 
     def selected_number(self, param, default, lowest, highest):
         value = self.request.GET.get(param)
-        if value and value.isdigit() and lowest <= int(value) <= highest:
+        if value and value.isdecimal() and lowest <= int(value) <= highest:
             return int(value)
         return default
 

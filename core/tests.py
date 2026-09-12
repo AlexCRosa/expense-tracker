@@ -549,9 +549,21 @@ class DashboardInputTest(TestCase):
         self.client.login(username="alex", password="pw123456")
 
     def test_out_of_range_month_and_year_fall_back(self):
-        for query in ["month=13", "month=0", "year=0", "year=99999", "month=abc"]:
+        for query in [
+            "month=13",
+            "month=0",
+            "year=0",
+            "year=99999",
+            "month=abc",
+            "year=²",
+        ]:
             response = self.client.get(f"{reverse('core:dashboard')}?{query}")
             self.assertEqual(response.status_code, 200, query)
+
+    def test_malformed_person_falls_back(self):
+        for url in [reverse("core:dashboard"), reverse("core:expense_list")]:
+            response = self.client.get(url, {"person": "²"})
+            self.assertEqual(response.status_code, 200, url)
 
 
 class UserManagersTest(TestCase):
