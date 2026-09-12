@@ -2,6 +2,7 @@ from datetime import date, datetime, timedelta
 
 from django.contrib.auth import get_user_model
 from django.db.models import Sum
+from django.db.utils import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
 
@@ -22,7 +23,7 @@ class DashboardViewTests(TestCase):
         self.client.login(username="testuser", password="testpassword")
 
         # Create a category for expenses
-        self.category = Category.objects.create(name="Groceries", user=self.user)
+        self.category = Category.objects.create(name="Groceries")
 
         # Create some expenses for the user
         Expense.objects.create(
@@ -176,7 +177,7 @@ class ExpenseModelTest(TestCase):
             username="testuser", email="testuser@example.com", password="password123"
         )
         self.category = Category.objects.create(
-            user=self.user, name="Food", description="Groceries and dining"
+            name="Food", description="Groceries and dining"
         )
         self.expense = Expense.objects.create(
             user=self.user,
@@ -334,44 +335,33 @@ class CategoryModelTest(TestCase):
             username="testuser", email="testuser@example.com", password="password123"
         )
         self.default_category1 = Category.objects.create(
-            name="Default Category 1", user=None, description=""
+            name="Default Category 1", description=""
         )
         self.default_category2 = Category.objects.create(
-            name="Default Category 2", user=None, description=""
+            name="Default Category 2", description=""
         )
         self.user_category = Category.objects.create(
-            name="User Category", user=self.user, description="User-specific"
+            name="User Category", description="User-specific"
         )
 
-    def test_allow_duplicate_category_names_for_different_users(self):
-        other_user = User.objects.create_user(
-            username="otheruser", email="otheruser@example.com", password="password123"
-        )
-        Category.objects.create(name="Duplicate Name", user=other_user)
-        Category.objects.create(name="Duplicate Name", user=self.user)
-        self.assertEqual(Category.objects.filter(name="Duplicate Name").count(), 2)
+    def test_category_names_are_unique(self):
+        with self.assertRaises(IntegrityError):
+            Category.objects.create(name=self.user_category.name)
 
-    def test_edit_default_category_creates_user_copy(self):
+    def test_edit_category_updates_it_for_everyone(self):
         self.client.login(username="testuser", password="password123")
 
         response = self.client.post(
             reverse("core:category_update", args=[self.default_category1.id]),
-            {
-                "name": self.default_category1.name,
-                "description": "User edited description",
-            },
+            {"name": self.default_category1.name, "description": "Edited description"},
         )
 
         self.assertRedirects(response, reverse("core:category_list"))
-        user_specific_category = Category.objects.get(
-            user=self.user, name=self.default_category1.name
-        )
-        self.assertEqual(user_specific_category.description, "User edited description")
+        self.default_category1.refresh_from_db()
+        self.assertEqual(self.default_category1.description, "Edited description")
+        self.assertEqual(Category.objects.filter(name="Default Category 1").count(), 1)
 
-        default_category = Category.objects.get(pk=self.default_category1.id)
-        self.assertEqual(default_category.description, "")
-
-    def test_prevent_duplicate_category_names_for_user(self):
+    def test_prevent_duplicate_category_names(self):
         self.client.login(username="testuser", password="password123")
 
         response = self.client.post(
@@ -379,28 +369,19 @@ class CategoryModelTest(TestCase):
             {"name": self.user_category.name, "description": "Duplicate Name Attempt"},
         )
 
-        self.assertContains(response, "You already have a category with this name.")
-
+        self.assertContains(response, "Category with this Name already exists.")
         self.assertEqual(
-            Category.objects.filter(
-                name=self.user_category.name, user=self.user
-            ).count(),
-            1,
+            Category.objects.filter(name=self.user_category.name).count(), 1
         )
 
-    def test_list_view_shows_correct_categories(self):
+    def test_list_view_shows_every_category(self):
         self.client.login(username="testuser", password="password123")
         response = self.client.get(reverse("core:category_list"))
 
-        customized_category = Category.objects.create(
-            user=self.user,
-            name=self.default_category1.name,
-            description="Customized Description",
-        )
-        response = self.client.get(reverse("core:category_list"))
-
-        self.assertContains(response, customized_category.name)
-        self.assertContains(response, customized_category.description)
+        self.assertContains(response, self.default_category1.name)
+        self.assertContains(response, self.default_category2.name)
+        self.assertContains(response, self.user_category.name)
+        self.assertContains(response, self.user_category.description)
 
     def test_delete_user_category(self):
         self.client.login(username="testuser", password="password123")
@@ -426,8 +407,8 @@ class BudgetModelTest(TestCase):
         )
 
         # Create categories for the users
-        self.category1 = Category.objects.create(user=self.user, name="Entertainment")
-        self.category2 = Category.objects.create(user=self.user, name="Groceries")
+        self.category1 = Category.objects.create(name="Entertainment")
+        self.category2 = Category.objects.create(name="Groceries")
 
         # Create budgets for the first user
         self.budget1 = Budget.objects.create(
@@ -469,9 +450,7 @@ class BudgetModelTest(TestCase):
         )
 
         # Create categories and expenses for the second user
-        other_category = Category.objects.create(
-            user=self.other_user, name="Other Entertainment"
-        )
+        other_category = Category.objects.create(name="Other Entertainment")
         Expense.objects.create(
             user=self.other_user,
             amount=100,

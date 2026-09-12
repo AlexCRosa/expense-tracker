@@ -5,7 +5,6 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import DecimalField, F, Q, Sum, Value
 from django.db.models.functions import Coalesce
-from django.http import HttpResponseRedirect
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views.generic import (
@@ -130,69 +129,19 @@ class CategoryListView(LoginRequiredMixin, ListView):
     template_name = "core/category_list.html"
     context_object_name = "categories"
 
-    def get_queryset(self):
-        user_categories = Category.objects.filter(user=self.request.user)
-        default_categories = Category.objects.filter(user=None).exclude(
-            name__in=user_categories.values_list("name", flat=True)
-        )
-        return (user_categories | default_categories).select_related("user")
-
 
 class CategoryCreateView(LoginRequiredMixin, CreateView):
     model = Category
     form_class = CategoryForm
     template_name = "core/category_form.html"
-
-    def form_valid(self, form):
-        form.instance.user = self.request.user
-        if Category.objects.filter(
-            name=form.instance.name, user=self.request.user
-        ).exists():
-            messages.error(self.request, "You already have a category with this name.")
-            return self.form_invalid(form)
-        if Category.objects.filter(name=form.instance.name, user=None).exists():
-            messages.error(
-                self.request, "This name is reserved for a default category."
-            )
-            return self.form_invalid(form)
-        return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy("core:category_list")
+    success_url = reverse_lazy("core:category_list")
 
 
 class CategoryUpdateView(LoginRequiredMixin, UpdateView):
     model = Category
     form_class = CategoryForm
     template_name = "core/category_form.html"
-
-    def get_form(self, form_class=None):
-        form = super().get_form(form_class)
-        if self.object.user is None:  # Default category
-            form.fields.pop("name")  # Remove 'name' field for default categories
-        return form
-
-    def form_valid(self, form):
-        category = self.object
-        if category.user is None:  # Default category
-            # Create a user-specific copy with the updated description
-            Category.objects.create(
-                user=self.request.user,
-                name=category.name,
-                description=form.cleaned_data["description"],
-            )
-        else:
-            # Save changes for user-owned categories
-            form.save()
-        return HttpResponseRedirect(self.get_success_url())
-
-    def get_queryset(self):
-        return Category.objects.filter(
-            user=self.request.user
-        ) | Category.objects.filter(user=None)
-
-    def get_success_url(self):
-        return reverse_lazy("core:category_list")
+    success_url = reverse_lazy("core:category_list")
 
 
 class CategoryDeleteView(LoginRequiredMixin, DeleteView):

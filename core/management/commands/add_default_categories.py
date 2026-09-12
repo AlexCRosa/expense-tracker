@@ -40,7 +40,7 @@ class Command(BaseCommand):
         for category_data in default_categories:
             category, created = Category.objects.get_or_create(
                 name=category_data["name"],
-                defaults={"description": category_data["description"], "user": None},
+                defaults={"description": category_data["description"]},
             )
             if created:
                 self.stdout.write(
